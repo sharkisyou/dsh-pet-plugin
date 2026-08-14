@@ -105,6 +105,7 @@ function cycleNext(current, list) {
       initError: null,
       importError: null,
       petsError: null,
+      diag: null,
       listeners: new Set(),
       version: 0,
     }
@@ -248,6 +249,25 @@ function cycleNext(current, list) {
     // 宠物状态 → 动画行名
     const STATE_ROW = { idle: 'idle', working: 'running', waiting: 'waiting', failed: 'failed' }
 
+    // ===== 当前会话提取（overlay 的 useSessions prop，防御性读取）=====
+
+    const selectAll = (s) => s
+
+    function extractCurrentSessionId(list) {
+      if (list === null || typeof list !== 'object') return null
+      for (const k of ['currentId', 'currentSessionId', 'activeId', 'selectedId', 'activeSessionId']) {
+        if (typeof list[k] === 'string' && list[k] !== '') return list[k]
+      }
+      for (const k of ['current', 'selected', 'active', 'open']) {
+        const v = list[k]
+        if (v !== null && typeof v === 'object') {
+          if (typeof v.id === 'string' && v.id !== '') return v.id
+          if (typeof v.sessionId === 'string' && v.sessionId !== '') return v.sessionId
+        }
+      }
+      return null
+    }
+
     // ===== 宠物本体 =====
 
     function PetView() {
@@ -390,9 +410,22 @@ function cycleNext(current, list) {
       )
     }
 
-    function PetRoot() {
+    function PetRoot(props) {
       const s = useStore()
       React.useEffect(() => { ensureInit() }, [])
+
+      const useSessions = props !== null && typeof props === 'object' ? props.useSessions : undefined
+      const sessionsList = typeof useSessions === 'function' ? useSessions(selectAll) : null
+      React.useEffect(() => {
+        if (sessionsList === null || typeof sessionsList !== 'object') return
+        const id = extractCurrentSessionId(sessionsList)
+        if (typeof id === 'string' && id !== store.currentSession) {
+          store.currentSession = id
+          notify()
+          host.call('pet/setCurrentSession', { sessionId: id }).catch(() => {})
+        }
+      }, [sessionsList])
+
       if (!s.inited) return null
       if (s.wake && s.pet !== null && s.spriteUrl !== null) {
         return React.createElement(PetView)
@@ -418,6 +451,12 @@ function cycleNext(current, list) {
           refreshCandidates()
           refreshPets()
           setImportMsg(null)
+          host.call('pet/getStatus', {}).then((res) => {
+            if (res !== null && typeof res === 'object') {
+              store.diag = { seen: res.seen, currentSession: res.currentSession }
+              notify()
+            }
+          }).catch(() => {})
         }
       }
 
@@ -499,6 +538,13 @@ function cycleNext(current, list) {
               importMsg !== null
                 ? React.createElement('div', { className: 'dsh-pet-muted' }, importMsg)
                 : null,
+              s.diag !== null && s.diag.seen !== undefined
+                ? React.createElement(
+                    'div',
+                    { className: 'dsh-pet-muted' },
+                    `事件 status=${s.diag.seen.status} tools=${s.diag.seen.tools} approvals=${s.diag.seen.approvals} subagents=${s.diag.seen.subagents} errors=${s.diag.seen.errors} 会话=${s.diag.currentSession === null ? '未知(跟随一切)' : s.diag.currentSession}`,
+                  )
+                : null,
             ),
           )
         : null
@@ -538,7 +584,7 @@ function cycleNext(current, list) {
 
     slots.inject('shell.overlay', () => slots.register(
       { name: 'shell.overlay', id: 'dsh-pet', order: 0 },
-      () => React.createElement(PetRoot),
+      (props) => React.createElement(PetRoot, props),
     ))
 
     slots.inject('conversation.session.header.actions', () => slots.register(

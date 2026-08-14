@@ -374,17 +374,21 @@ function spriteMime(name) {
     }
 
     function relevantToCurrent(agent) {
-      if (currentSession === null) return false
+      // 无法确定当前会话时跟随一切活动，避免永远显示空闲
+      if (currentSession === null) return true
       const id = agentIdOf(agent)
       if (id === null) return true
       return id === currentSession
     }
+
+    const eventCounters = { status: 0, tools: 0, approvals: 0, subagents: 0, errors: 0 }
 
     // ===== 事件 → 状态机 =====
 
     ctx.on('agent/status', (payload) => {
       if (payload === null || typeof payload !== 'object') return
       if (!relevantToCurrent(payload.agent)) return
+      eventCounters.status++
       sm.apply({
         kind: 'agent-status',
         status: payload.status === 'running' ? 'running' : 'idle',
@@ -395,6 +399,7 @@ function spriteMime(name) {
     ctx.on('agent/error', (payload) => {
       if (payload === null || typeof payload !== 'object') return
       if (!relevantToCurrent(payload.agent)) return
+      eventCounters.errors++
       sm.apply({ kind: 'error', ts: now() })
     })
 
@@ -402,6 +407,7 @@ function spriteMime(name) {
       const belongsToCurrent = exec !== null && typeof exec === 'object' &&
         relevantToCurrent(exec.agent !== undefined ? exec.agent : exec.caller)
       if (!belongsToCurrent) return next()
+      eventCounters.tools++
       const name = toolNameOf(exec)
       sm.apply({ kind: 'tool-start', name, isQuestion: name === 'ask_user_question', ts: now() })
       return (async () => {
@@ -414,13 +420,13 @@ function spriteMime(name) {
     })
 
     ctx.on('approval/request', (req, next) => {
-      if (currentSession === null) return next()
       let belongsToCurrent = true
-      if (req !== null && typeof req === 'object') {
+      if (currentSession !== null && req !== null && typeof req === 'object') {
         const sid = sessionIdOf(req)
         if (sid !== null && sid !== currentSession) belongsToCurrent = false
       }
       if (!belongsToCurrent) return next()
+      eventCounters.approvals++
       sm.apply({ kind: 'approval-start', ts: now() })
       return (async () => {
         try {
@@ -432,12 +438,12 @@ function spriteMime(name) {
     })
 
     ctx.on('subagent/start', (info) => {
-      if (currentSession === null) return
       const parent = parentIdOf(info)
-      if (parent !== null && parent !== currentSession) return
+      if (currentSession !== null && parent !== null && parent !== currentSession) return
       const child = childIdOf(info)
       if (child === null) return
       trackedSubagents.add(child)
+      eventCounters.subagents++
       sm.apply({ kind: 'subagent-start', ts: now() })
     })
 
@@ -567,7 +573,7 @@ function spriteMime(name) {
 
     harness.handle('pet/getStatus', async () => {
       const { state, bubble } = sm.apply({ kind: 'tick', ts: now() })
-      return { state, bubble }
+      return { state, bubble, seen: { ...eventCounters }, currentSession }
     })
 
     harness.handle('pet/setCurrentSession', async (args) => {
