@@ -65,14 +65,16 @@ function cycleNext(current, list) {
         border: none; background: rgba(40,40,40,.9); color: #fff; font-size: 11px; line-height: 1;
         cursor: pointer; display: none; }
       .dsh-pet-root:hover .dsh-pet-hide { display: block; }
-      .dsh-pet-wake { position: fixed; z-index: 9500; right: 16px; bottom: 16px; width: 34px; height: 34px;
+      .dsh-pet-menu-wrap { position: relative; display: inline-block; }
+      .dsh-pet-menu-wrap-overlay { position: fixed; right: 16px; bottom: 16px; z-index: 9500; display: block; }
+      .dsh-pet-wake { position: relative; width: 34px; height: 34px;
         border-radius: 50%; background: rgba(30,30,30,.75); color: #fff; font-size: 16px; cursor: pointer;
         border: 1px solid rgba(255,255,255,.25); }
-      .dsh-pet-menu-wrap { position: relative; display: inline-block; }
       .dsh-pet-menu-backdrop { position: fixed; inset: 0; z-index: 9580; background: transparent; }
       .dsh-pet-menu { position: absolute; top: calc(100% + 6px); right: 0; width: 260px; max-height: 60vh;
         overflow: auto; background: rgba(32,32,32,.97); border: 1px solid rgba(255,255,255,.15);
         border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.35); padding: 8px; z-index: 9600; color: #eee; }
+      .dsh-pet-menu-overlay { top: auto; bottom: calc(100% + 6px); }
       .dsh-pet-menu h4 { margin: 6px 2px; font-size: 12px; color: #aaa; font-weight: 600; }
       .dsh-pet-item { display: flex; justify-content: space-between; align-items: center; gap: 6px;
         padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 13px; }
@@ -377,44 +379,24 @@ function cycleNext(current, list) {
       const s = useStore()
       React.useEffect(() => { ensureInit() }, [])
       if (!s.inited) return null
-      if (!s.wake) {
-        return React.createElement('button', {
-          className: 'dsh-pet-wake',
-          onClick: () => setWake(true),
-          title: '唤醒宠物',
-        }, '🐾')
+      if (s.wake && s.pet !== null && s.spriteUrl !== null) {
+        return React.createElement(PetView)
       }
-      if (s.pet === null || s.spriteUrl === null) return null
-      return React.createElement(PetView)
+      // 隐藏或尚未选择宠物时：右下角悬浮入口（打开菜单）
+      return React.createElement(PetMenu, { variant: 'overlay' })
     }
 
-    // ===== 头部控制按钮 + 菜单 =====
+    // ===== 宠物菜单（会话头部与悬浮双入口共用）=====
 
-    function PetHeaderButton(props) {
+    function PetMenu(props) {
       const s = useStore()
       const [open, setOpen] = React.useState(false)
       const [importMsg, setImportMsg] = React.useState(null)
+      const variant = props !== null && typeof props === 'object' && props.variant === 'overlay'
+        ? 'overlay'
+        : 'header'
 
-      const sessionId = props !== null && typeof props === 'object' ? props.sessionId : undefined
-
-      React.useEffect(() => {
-        ensureInit()
-      }, [])
-
-      React.useEffect(() => {
-        store.currentSession = typeof sessionId === 'string' ? sessionId : null
-        notify()
-        host.call('pet/setCurrentSession', { sessionId: store.currentSession }).catch((err) => {
-          console.error('[pet] setCurrentSession 失败', String(err))
-        })
-        return () => {
-          store.currentSession = null
-          notify()
-          host.call('pet/setCurrentSession', { sessionId: null }).catch(() => {})
-        }
-      }, [sessionId])
-
-      function toggleMenu() {
+      function toggle() {
         const next = !open
         setOpen(next)
         if (next) {
@@ -452,7 +434,10 @@ function cycleNext(current, list) {
             React.createElement('div', { className: 'dsh-pet-menu-backdrop', onClick: () => setOpen(false) }),
             React.createElement(
               'div',
-              { className: 'dsh-pet-menu', onClick: (e) => e.stopPropagation() },
+              {
+                className: variant === 'overlay' ? 'dsh-pet-menu dsh-pet-menu-overlay' : 'dsh-pet-menu',
+                onClick: (e) => e.stopPropagation(),
+              },
               React.createElement('h4', null, '宠物'),
               React.createElement(
                 'div',
@@ -462,7 +447,7 @@ function cycleNext(current, list) {
               ),
               React.createElement('h4', null, '选择宠物'),
               s.pets.length === 0
-                ? React.createElement('div', { className: 'dsh-pet-muted' }, '宠物库为空，请先导入')
+                ? React.createElement('div', { className: 'dsh-pet-muted' }, '宠物库为空，请先从下方导入')
                 : s.pets.map((pet) => React.createElement(
                     'div',
                     {
@@ -502,10 +487,35 @@ function cycleNext(current, list) {
 
       return React.createElement(
         'div',
-        { className: 'dsh-pet-menu-wrap' },
-        React.createElement('button', { className: 'dsh-pet-btn', onClick: toggleMenu }, '🐾 宠物'),
+        { className: variant === 'overlay' ? 'dsh-pet-menu-wrap dsh-pet-menu-wrap-overlay' : 'dsh-pet-menu-wrap' },
+        React.createElement('button', {
+          className: variant === 'overlay' ? 'dsh-pet-wake' : 'dsh-pet-btn',
+          onClick: toggle,
+          title: '宠物',
+        }, variant === 'overlay' ? '🐾' : '🐾 宠物'),
         menu,
       )
+    }
+
+    // ===== 头部入口（携带当前会话 id 上报）=====
+
+    function PetHeaderButton(props) {
+      const sessionId = props !== null && typeof props === 'object' ? props.sessionId : undefined
+
+      React.useEffect(() => {
+        store.currentSession = typeof sessionId === 'string' ? sessionId : null
+        notify()
+        host.call('pet/setCurrentSession', { sessionId: store.currentSession }).catch((err) => {
+          console.error('[pet] setCurrentSession 失败', String(err))
+        })
+        return () => {
+          store.currentSession = null
+          notify()
+          host.call('pet/setCurrentSession', { sessionId: null }).catch(() => {})
+        }
+      }, [sessionId])
+
+      return React.createElement(PetMenu, { variant: 'header' })
     }
 
     slots.inject('shell.overlay', () => slots.register(
