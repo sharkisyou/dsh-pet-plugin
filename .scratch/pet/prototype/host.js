@@ -456,28 +456,69 @@ function spriteMime(name) {
     // ===== 路径与 shell =====
 
     async function findHome() {
+      const reasons = []
+
+      // 1. process.env（动态宿主可能没有）
       if (typeof process !== 'undefined' && process !== null && process.env) {
         for (const key of ['DSH_HOME', 'USERPROFILE', 'HOME']) {
           const value = process.env[key]
           if (typeof value === 'string' && value !== '') {
-            return value.replace(/[\\/]+$/, '')
+            return { home: value.replace(/[\\/]+$/, '') }
           }
         }
+        reasons.push('env: 无 USERPROFILE/HOME/DSH_HOME')
+      } else {
+        reasons.push('env: process.env 不可用')
       }
+
+      // 2. C:\Users 枚举
       try {
         const usersDir = await fs.resolve('C:\\Users')
         const entries = await fs.listDir(usersDir)
+        reasons.push('enum: ' + (Array.isArray(entries) ? entries.length : 0) + ' 个条目')
         for (const entry of entries || []) {
           const name = entryName(entry)
           if (name === null || name === '' || name.startsWith('.')) continue
           const candidate = 'C:/Users/' + name
           const dsh = await fs.resolve(candidate + '/.dsh')
-          if (await fs.stat(dsh)) return candidate
+          if (await fs.stat(dsh)) return { home: candidate }
         }
+        reasons.push('enum: 未找到含 .dsh 的用户目录')
       } catch (err) {
-        console.error('[pet] findHome 枚举失败', String(err))
+        reasons.push('enum 错误: ' + String(err))
       }
-      // shell 兜底：询问 USERPROFILE / HOME
+
+      // 3. 会话持久化位置反推（~/.dsh/sessions/... 前缀）
+      const sp = ctx.get('sessionPersistence')
+      if (sp !== undefined) {
+        try {
+          const headers = await sp.list()
+          for (const meta of headers || []) {
+            let loc = null
+            try { loc = sp.locate(meta) } catch (err) { continue }
+            if (loc === undefined || loc === null) continue
+            let text = null
+            if (typeof loc === 'string') text = loc
+            else if (typeof loc === 'object') {
+              if (typeof loc.path === 'string') text = loc.path
+              else if (typeof loc.file === 'string') text = loc.file
+              else if (typeof loc.uri === 'string') text = loc.uri
+            }
+            if (text === null) continue
+            const normalized = text.replace(/\\/g, '/')
+            const idx = normalized.indexOf('/.dsh/')
+            if (idx >= 0) return { home: normalized.slice(0, idx) }
+            if (normalized.endsWith('/.dsh')) return { home: normalized.slice(0, -5) }
+          }
+          reasons.push('sessions: 未解析出主目录')
+        } catch (err) {
+          reasons.push('sessions 错误: ' + String(err))
+        }
+      } else {
+        reasons.push('sessions: 服务不可用')
+      }
+
+      // 4. shell 兜底：询问 USERPROFILE / HOME
       if (shell !== undefined) {
         try {
           const dialect = await getDialect()
@@ -489,23 +530,32 @@ function spriteMime(name) {
             for (const m of matches) {
               const clean = m.replace(/\\/g, '/').replace(/\/+$/, '')
               if (clean.indexOf('/Users/') >= 0 || clean.indexOf('/home/') >= 0) {
-                return clean
+                return { home: clean }
               }
             }
+            reasons.push('shell: 输出未匹配到主目录路径')
+          } else {
+            reasons.push('shell: 方言未知')
           }
         } catch (err) {
-          console.error('[pet] findHome shell 兜底失败', String(err))
+          reasons.push('shell 错误: ' + String(err))
         }
+      } else {
+        reasons.push('shell: 服务不可用')
       }
-      return null
+
+      return { error: reasons.join(' | ') }
     }
 
     let initPromise = null
     function ensureInit() {
       if (initPromise === null) {
         initPromise = (async () => {
-          home = await findHome()
-          if (home === null) throw new Error('无法定位用户主目录')
+          const found = await findHome()
+          if (found.error !== undefined) {
+            throw new Error('无法定位用户主目录 [' + found.error + ']')
+          }
+          home = found.home
           libDir = home + '/.dsh/pets'
           sourceDir = home + '/.codex/pets'
           console.log('[pet] home=' + home + ' lib=' + libDir + ' src=' + sourceDir)
