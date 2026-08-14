@@ -2,7 +2,6 @@ return {
   apply(ctx) {
     const fs = ctx.get('fs')
     if (fs === undefined) return
-    const shell = ctx.get('shell')
 
     // ===== 纯逻辑内嵌（由 .scratch/pet/prototype/sync-inline.js 生成，sync.test.js 校验）=====
 
@@ -310,17 +309,22 @@ function spriteMime(name) {
     const CELL_W = 192
     const CELL_H = 208
     const SPRITE_MAX = 25 * 1024 * 1024
-    const SHELL_TIMEOUT_MS = 60000
     const now = () => Date.now()
 
     let home = null
-    let libDir = null
     let sourceDir = null
     let currentSession = null
-    let shellDialect = null
     const sm = createPetStateMachine()
     const spriteCache = new Map()
     const trackedSubagents = new Set()
+
+    function petFile(id) {
+      return home + '/.dsh/pet-' + id + '.json'
+    }
+
+    function stateFile() {
+      return home + '/.dsh/pet-state.json'
+    }
 
     function entryName(entry) {
       if (typeof entry === 'string') return entry
@@ -453,12 +457,11 @@ function spriteMime(name) {
       return '工具'
     }
 
-    // ===== 路径与 shell =====
+    // ===== 主目录发现（免 shell、免 process.env）=====
 
     async function findHome() {
       const reasons = []
 
-      // 1. process.env（动态宿主可能没有）
       if (typeof process !== 'undefined' && process !== null && process.env) {
         for (const key of ['DSH_HOME', 'USERPROFILE', 'HOME']) {
           const value = process.env[key]
@@ -471,11 +474,9 @@ function spriteMime(name) {
         reasons.push('env: process.env 不可用')
       }
 
-      // 2. C:\Users 枚举
       try {
         const usersDir = await fs.resolve('C:\\Users')
         const entries = await fs.listDir(usersDir)
-        reasons.push('enum: ' + (Array.isArray(entries) ? entries.length : 0) + ' 个条目')
         for (const entry of entries || []) {
           const name = entryName(entry)
           if (name === null || name === '' || name.startsWith('.')) continue
@@ -488,7 +489,6 @@ function spriteMime(name) {
         reasons.push('enum 错误: ' + String(err))
       }
 
-      // 3. 会话持久化位置反推（~/.dsh/sessions/... 前缀）
       const sp = ctx.get('sessionPersistence')
       if (sp !== undefined) {
         try {
@@ -518,32 +518,6 @@ function spriteMime(name) {
         reasons.push('sessions: 服务不可用')
       }
 
-      // 4. shell 兜底：询问 USERPROFILE / HOME
-      if (shell !== undefined) {
-        try {
-          const dialect = await getDialect()
-          if (dialect !== 'none') {
-            const cmd = dialect === 'ps' ? '$env:USERPROFILE' : 'echo $HOME'
-            const res = await runCmd(cmd)
-            const text = String(JSON.stringify(res))
-            const matches = text.match(/[A-Za-z]:[\\/][^\s"']+/g) || []
-            for (const m of matches) {
-              const clean = m.replace(/\\/g, '/').replace(/\/+$/, '')
-              if (clean.indexOf('/Users/') >= 0 || clean.indexOf('/home/') >= 0) {
-                return { home: clean }
-              }
-            }
-            reasons.push('shell: 输出未匹配到主目录路径')
-          } else {
-            reasons.push('shell: 方言未知')
-          }
-        } catch (err) {
-          reasons.push('shell 错误: ' + String(err))
-        }
-      } else {
-        reasons.push('shell: 服务不可用')
-      }
-
       return { error: reasons.join(' | ') }
     }
 
@@ -556,57 +530,11 @@ function spriteMime(name) {
             throw new Error('无法定位用户主目录 [' + found.error + ']')
           }
           home = found.home
-          libDir = home + '/.dsh/pets'
           sourceDir = home + '/.codex/pets'
-          console.log('[pet] home=' + home + ' lib=' + libDir + ' src=' + sourceDir)
+          console.log('[pet] home=' + home + ' src=' + sourceDir)
         })()
       }
       return initPromise
-    }
-
-    async function runCmd(command) {
-      if (shell === undefined) throw new Error('shell 服务不可用')
-      const spec = shell.resolve({ command, timeoutMs: SHELL_TIMEOUT_MS })
-      return shell.run(spec)
-    }
-
-    async function detectDialect() {
-      if (shell === undefined) return 'none'
-      try {
-        const res = await runCmd('$PSVersionTable.PSVersion.Major')
-        const text = String(JSON.stringify(res)).toLowerCase()
-        if (!text.includes('not found') && !text.includes('syntax error')) return 'ps'
-        return 'bash'
-      } catch (err) {
-        return 'ps'
-      }
-    }
-
-    async function getDialect() {
-      if (shellDialect === null) shellDialect = await detectDialect()
-      return shellDialect
-    }
-
-    function quotePath(path) {
-      return '"' + String(path).replace(/"/g, '""') + '"'
-    }
-
-    async function mkdirPath(path) {
-      const dialect = await getDialect()
-      if (dialect === 'none') throw new Error('shell 服务不可用')
-      const cmd = dialect === 'ps'
-        ? 'New-Item -ItemType Directory -Force -Path ' + quotePath(path) + ' | Out-Null'
-        : 'mkdir -p ' + quotePath(path)
-      await runCmd(cmd)
-    }
-
-    async function copyFile(src, dst) {
-      const dialect = await getDialect()
-      if (dialect === 'none') throw new Error('shell 服务不可用')
-      const cmd = dialect === 'ps'
-        ? 'Copy-Item -LiteralPath ' + quotePath(src) + ' -Destination ' + quotePath(dst) + ' -Force'
-        : 'cp -f ' + quotePath(src) + ' ' + quotePath(dst)
-      await runCmd(cmd)
     }
 
     async function statPath(path) {
@@ -653,9 +581,8 @@ function spriteMime(name) {
     harness.handle('pet/loadState', async () => {
       try {
         await ensureInit()
-        const path = libDir + '/state.json'
-        if (!(await statPath(path))) return { ok: true, state: null }
-        const text = await readTextPath(path)
+        if (!(await statPath(stateFile()))) return { ok: true, state: null }
+        const text = await readTextPath(stateFile())
         const parsed = JSON.parse(stripBom(text))
         return { ok: true, state: parsed }
       } catch (err) {
@@ -667,8 +594,7 @@ function spriteMime(name) {
       try {
         await ensureInit()
         const state = args !== null && typeof args === 'object' ? args : {}
-        if (!(await statPath(libDir))) await mkdirPath(libDir)
-        const target = await fs.resolve(libDir + '/state.json')
+        const target = await fs.resolve(stateFile())
         await fs.writeText(target, JSON.stringify(state))
         return { ok: true }
       } catch (err) {
@@ -679,18 +605,21 @@ function spriteMime(name) {
     harness.handle('pet/listPets', async () => {
       try {
         await ensureInit()
-        if (!(await statPath(libDir))) return { ok: true, pets: [] }
-        const names = await listDirNames(libDir)
+        const homeDir = home + '/.dsh'
+        if (!(await statPath(homeDir))) return { ok: true, pets: [] }
+        const names = await listDirNames(homeDir)
         const pets = []
         for (const name of names) {
-          const base = libDir + '/' + name
+          if (!name.startsWith('pet-') || !name.endsWith('.json') || name === 'pet-state.json') continue
+          const id = name.slice(4, -5)
           try {
-            const text = await readTextPath(base + '/pet.json')
-            const json = JSON.parse(stripBom(text))
+            const payload = JSON.parse(stripBom(await readTextPath(petFile(id))))
+            const pet = payload !== null && typeof payload === 'object' ? payload.pet : null
+            if (pet === null || typeof pet !== 'object') continue
             pets.push({
-              id: typeof json.id === 'string' ? json.id : name,
-              displayName: typeof json.displayName === 'string' ? json.displayName : name,
-              description: typeof json.description === 'string' ? json.description : '',
+              id: typeof pet.id === 'string' ? pet.id : id,
+              displayName: typeof pet.displayName === 'string' ? pet.displayName : id,
+              description: typeof pet.description === 'string' ? pet.description : '',
             })
           } catch (err) {
             console.error('[pet] listPets 读取失败 ' + name + ': ' + String(err))
@@ -724,7 +653,7 @@ function spriteMime(name) {
             displayName,
             valid: assessed.valid,
             reason: assessed.reason,
-            existsInLibrary: assessed.valid ? await statPath(libDir + '/' + name) : false,
+            existsInLibrary: assessed.valid ? await statPath(petFile(name)) : false,
           })
         }
         return { ok: true, candidates }
@@ -739,26 +668,37 @@ function spriteMime(name) {
         const id = args !== null && typeof args === 'object' && typeof args.id === 'string' ? args.id : null
         const overwrite = args !== null && typeof args === 'object' && args.overwrite === true
         if (id === null) return { ok: false, error: '缺少宠物 id' }
+        if (await statPath(petFile(id)) && !overwrite) {
+          return { ok: false, error: '同名宠物已存在，请先覆盖' }
+        }
         const srcBase = sourceDir + '/' + id
-        const dstBase = libDir + '/' + id
         const jsonText = await readTextPath(srcBase + '/pet.json')
         const json = JSON.parse(stripBom(jsonText))
         const spriteName = typeof json.spritesheetPath === 'string' ? json.spritesheetPath : 'spritesheet.png'
         const spriteSrc = srcBase + '/' + spriteName
-        const spriteDst = dstBase + '/' + spriteName
         if (!(await statPath(spriteSrc))) {
           return { ok: false, error: '源图集缺失: ' + spriteName }
         }
-        const dstExists = await statPath(dstBase)
-        if (dstExists && !overwrite) {
-          return { ok: false, error: '同名宠物已存在，请先覆盖' }
+        const spriteTarget = await fs.resolve(spriteSrc)
+        const bytes = await fs.readBytes(spriteTarget, undefined, SPRITE_MAX)
+        const dims = imageDims(bytes)
+        if (dims === null) return { ok: false, error: '图集不是支持的图片格式（PNG/WebP）' }
+        if (dims.width % CELL_W !== 0 || dims.height % CELL_H !== 0 || dims.width / CELL_W !== 8) {
+          return { ok: false, error: '图集尺寸不支持: ' + dims.width + 'x' + dims.height }
         }
-        if (!(await statPath(libDir))) await mkdirPath(libDir)
-        if (!dstExists) await mkdirPath(dstBase)
-        await fs.writeText(await fs.resolve(dstBase + '/pet.json'), jsonText)
-        await copyFile(spriteSrc, spriteDst)
-        const copied = await statPath(spriteDst)
-        if (!copied) return { ok: false, error: '图集复制后校验失败' }
+        const atlasRows = dims.height / CELL_H
+        const parsed = parsePetJson(jsonText, atlasRows)
+        if (!parsed.ok) return { ok: false, error: parsed.errors.join('; ') }
+        const payload = {
+          pet: parsed.pet,
+          spriteB64: bytesToBase64(bytes),
+          mime: spriteMime(spriteName),
+          atlasRows,
+        }
+        const target = await fs.resolve(petFile(id))
+        await fs.writeText(target, JSON.stringify(payload))
+        const ok = await statPath(petFile(id))
+        if (!ok) return { ok: false, error: '写入后校验失败' }
         return { ok: true }
       } catch (err) {
         return { ok: false, error: String(err) }
@@ -772,25 +712,16 @@ function spriteMime(name) {
         if (id === null) return { ok: false, error: '缺少宠物 id' }
         const cached = spriteCache.get(id)
         if (cached !== undefined) return cached
-        const base = libDir + '/' + id
-        const text = await readTextPath(base + '/pet.json')
-        const json = JSON.parse(stripBom(text))
-        const spriteName = typeof json.spritesheetPath === 'string' ? json.spritesheetPath : 'spritesheet.png'
-        const spriteTarget = await fs.resolve(base + '/' + spriteName)
-        const bytes = await fs.readBytes(spriteTarget, undefined, SPRITE_MAX)
-        const dims = imageDims(bytes)
-        if (dims === null) return { ok: false, error: '图集不是支持的图片格式（PNG/WebP）' }
-        if (dims.width % CELL_W !== 0 || dims.height % CELL_H !== 0 || dims.width / CELL_W !== 8) {
-          return { ok: false, error: '图集尺寸不支持: ' + dims.width + 'x' + dims.height }
+        const payload = JSON.parse(stripBom(await readTextPath(petFile(id))))
+        if (payload === null || typeof payload !== 'object' || payload.pet === undefined) {
+          return { ok: false, error: '宠物数据损坏' }
         }
-        const atlasRows = dims.height / CELL_H
-        const parsed = parsePetJson(text, atlasRows)
-        if (!parsed.ok) return { ok: false, error: parsed.errors.join('; ') }
         const result = {
           ok: true,
-          pet: parsed.pet,
-          spriteDataUrl: 'data:' + spriteMime(spriteName) + ';base64,' + bytesToBase64(bytes),
-          atlas: { rows: atlasRows },
+          pet: payload.pet,
+          spriteDataUrl: 'data:' + (typeof payload.mime === 'string' ? payload.mime : 'image/png') +
+            ';base64,' + payload.spriteB64,
+          atlas: { rows: typeof payload.atlasRows === 'number' ? payload.atlasRows : 9 },
         }
         spriteCache.set(id, result)
         return result
@@ -799,6 +730,6 @@ function spriteMime(name) {
       }
     })
 
-    console.log('[pet] host half 已就绪')
+    console.log('[pet] host half 已就绪（免 shell 扁平存储）')
   },
 }
