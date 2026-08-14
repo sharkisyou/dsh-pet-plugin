@@ -1,0 +1,9 @@
+{
+  "name": "dsh-pet",
+  "private": true,
+  "version": "0.1.0",
+  "description": "DSH 宠物插件：状态驱动悬浮宠物（Codex 宠物包兼容）",
+  "scripts": {
+    "test": "node --test"
+  }
+}
