@@ -54,6 +54,8 @@ Status: ready-for-agent
 - 缺某状态行 → 回退 idle；无 `interactions.click` → 点击播问候。
 - 失败状态若 10 秒无后续活动，自动回空闲。
 - 跟随**当前页面打开的会话**；页面无会话打开时显示空闲。
+- 当前会话识别：头部 Slot 的 `sessionId` prop + overlay 的 `useSessions`（防御性字段提取）；**无法识别当前会话时跟随一切活动**（否则头部入口不可见的页面会永远显示空闲）。
+- 菜单底部显示事件计数诊断（status/tools/approvals/subagents/errors 与当前会话），便于排查状态联动。
 
 ### 控制与记忆
 
