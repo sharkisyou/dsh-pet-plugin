@@ -229,6 +229,8 @@ function cycleNext(current, list) {
         if (res !== null && typeof res === 'object' && res.ok) {
           await refreshPets()
           await refreshCandidates()
+          // 覆盖导入当前选中的宠物时，重载其新模型
+          if (id === store.petId) await selectPet(id)
           return null
         }
         return res !== null && typeof res === 'object' && typeof res.error === 'string'

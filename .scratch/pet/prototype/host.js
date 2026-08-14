@@ -708,6 +708,7 @@ function spriteMime(name) {
         await fs.writeText(target, JSON.stringify(payload))
         const ok = await statPath(petFile(id))
         if (!ok) return { ok: false, error: '写入后校验失败' }
+        spriteCache.delete(id)
         return { ok: true }
       } catch (err) {
         return { ok: false, error: String(err) }
