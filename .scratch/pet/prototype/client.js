@@ -102,6 +102,9 @@ function cycleNext(current, list) {
       clickAnim: null,
       pos: { x: null, y: null },
       importCandidates: [],
+      initError: null,
+      importError: null,
+      petsError: null,
       listeners: new Set(),
       version: 0,
     }
@@ -167,13 +170,13 @@ function cycleNext(current, list) {
             if (st.state.pos && typeof st.state.pos.x === 'number' && typeof st.state.pos.y === 'number') {
               store.pos = { x: st.state.pos.x, y: st.state.pos.y }
             }
+          } else if (st !== null && typeof st === 'object' && st.ok === false) {
+            store.initError = '状态读取失败: ' + (typeof st.error === 'string' ? st.error : '未知')
           }
-          const list = await host.call('pet/listPets', {})
-          if (list !== null && typeof list === 'object' && list.ok) {
-            store.pets = Array.isArray(list.pets) ? list.pets : []
-          }
+          await refreshPets()
           if (store.petId !== null) await selectPet(store.petId)
         } catch (err) {
+          store.initError = '初始化异常: ' + String(err)
           console.error('[pet] init 异常', String(err))
         } finally {
           store.inited = true
@@ -188,9 +191,15 @@ function cycleNext(current, list) {
         const res = await host.call('pet/listImportCandidates', {})
         if (res !== null && typeof res === 'object' && res.ok) {
           store.importCandidates = Array.isArray(res.candidates) ? res.candidates : []
+          store.importError = null
+          notify()
+        } else {
+          store.importError = '读取导入列表失败: ' +
+            (res !== null && typeof res === 'object' && typeof res.error === 'string' ? res.error : '无响应')
           notify()
         }
       } catch (err) {
+        store.importError = '读取导入列表异常: ' + String(err)
         console.error('[pet] listImportCandidates 失败', String(err))
       }
     }
@@ -200,9 +209,15 @@ function cycleNext(current, list) {
         const list = await host.call('pet/listPets', {})
         if (list !== null && typeof list === 'object' && list.ok) {
           store.pets = Array.isArray(list.pets) ? list.pets : []
+          store.petsError = null
+          notify()
+        } else {
+          store.petsError = '读取宠物库失败: ' +
+            (list !== null && typeof list === 'object' && typeof list.error === 'string' ? list.error : '无响应')
           notify()
         }
       } catch (err) {
+        store.petsError = '读取宠物库异常: ' + String(err)
         console.error('[pet] listPets 失败', String(err))
       }
     }
@@ -447,7 +462,9 @@ function cycleNext(current, list) {
               ),
               React.createElement('h4', null, '选择宠物'),
               s.pets.length === 0
-                ? React.createElement('div', { className: 'dsh-pet-muted' }, '宠物库为空，请先从下方导入')
+                ? React.createElement('div', { className: 'dsh-pet-muted' },
+                    s.petsError !== null ? s.petsError
+                      : (s.initError !== null ? s.initError : '宠物库为空，请先从下方导入'))
                 : s.pets.map((pet) => React.createElement(
                     'div',
                     {
@@ -459,7 +476,8 @@ function cycleNext(current, list) {
                   )),
               React.createElement('h4', null, '从 Codex 导入'),
               s.importCandidates.length === 0
-                ? React.createElement('div', { className: 'dsh-pet-muted' }, '未发现可导入的宠物包')
+                ? React.createElement('div', { className: 'dsh-pet-muted' },
+                    s.importError !== null ? s.importError : '未发现可导入的宠物包')
                 : React.createElement(
                     'div',
                     null,

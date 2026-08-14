@@ -323,8 +323,10 @@ function spriteMime(name) {
     const trackedSubagents = new Set()
 
     function entryName(entry) {
+      if (typeof entry === 'string') return entry
       if (entry === null || typeof entry !== 'object') return null
       if (typeof entry.name === 'string') return entry.name
+      if (typeof entry.basename === 'string') return entry.basename
       if (typeof entry.path === 'string') {
         const parts = entry.path.split(/[\\/]/)
         return parts[parts.length - 1]
@@ -474,6 +476,26 @@ function spriteMime(name) {
         }
       } catch (err) {
         console.error('[pet] findHome 枚举失败', String(err))
+      }
+      // shell 兜底：询问 USERPROFILE / HOME
+      if (shell !== undefined) {
+        try {
+          const dialect = await getDialect()
+          if (dialect !== 'none') {
+            const cmd = dialect === 'ps' ? '$env:USERPROFILE' : 'echo $HOME'
+            const res = await runCmd(cmd)
+            const text = String(JSON.stringify(res))
+            const matches = text.match(/[A-Za-z]:[\\/][^\s"']+/g) || []
+            for (const m of matches) {
+              const clean = m.replace(/\\/g, '/').replace(/\/+$/, '')
+              if (clean.indexOf('/Users/') >= 0 || clean.indexOf('/home/') >= 0) {
+                return clean
+              }
+            }
+          }
+        } catch (err) {
+          console.error('[pet] findHome shell 兜底失败', String(err))
+        }
       }
       return null
     }
