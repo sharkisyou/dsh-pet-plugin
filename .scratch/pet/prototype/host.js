@@ -113,9 +113,12 @@ function resolveRow(sourceRow, atlasRows) {
   return -1
 }
 
-function clampFrameCount(value, base) {
-  if (typeof value !== 'number' || !Number.isInteger(value)) return base
-  return Math.min(Math.max(value, 1), 8)
+function clampFrameCount(value, official) {
+  // 上限为官方该行已用帧数：社区包常把 frameCount 声明为 8，但标准行
+  // 实际只画了 ROW_FRAME_COUNTS 帧（多余格透明），超出的帧渲染成
+  // "消失帧"，循环播放时表现为宠物闪烁。
+  if (typeof value !== 'number' || !Number.isInteger(value)) return official
+  return Math.min(Math.max(value, 1), official)
 }
 
 function buildTiming(timingMs, frameCount) {

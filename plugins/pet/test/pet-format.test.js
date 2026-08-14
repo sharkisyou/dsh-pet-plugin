@@ -55,7 +55,7 @@ test('有 pet.json 但无图集的目录不是有效包', () => {
 
 // 切片 2：社区扩展 v1（animations 元数据 + interactions.click）+ 11 行 v2 + 错误路径
 
-test('带 animations 元数据的 v1：保留每动画的行号/帧数/节奏/播放方式', () => {
+test('带 animations 元数据的 v1：保留每动画的行号/帧数/节奏/播放方式，标准行按官方已用帧数封顶', () => {
   const json = JSON.stringify({
     id: 'sasuke-3',
     displayName: 'Sasuke Uchiha',
@@ -100,17 +100,35 @@ test('带 animations 元数据的 v1：保留每动画的行号/帧数/节奏/�
   assert.equal(result.pet.kind, 'person')
   const idle = result.pet.states.idle
   assert.equal(idle.row, 0)
-  assert.equal(idle.frameCount, 8)
-  assert.deepEqual(idle.timingMs, [240, 180, 180, 160, 160, 180, 180, 280])
+  // 官方 idle 行只画 6 帧，声明 8 需封顶，否则出现空白帧闪烁
+  assert.equal(idle.frameCount, 6)
+  assert.deepEqual(idle.timingMs, [240, 180, 180, 160, 160, 180])
   assert.equal(idle.playback, 'loop')
   const dash = result.pet.states['chidoriDashRight']
   assert.equal(dash.row, 1)
+  assert.equal(dash.frameCount, 8, '官方 running-right 行画满 8 帧，不封顶')
   assert.equal(dash.playback, 'once')
   assert.equal(dash.loop, false)
   const amaterasu = result.pet.states.amaterasu
   assert.equal(amaterasu.row, 3)
+  assert.equal(amaterasu.frameCount, 4, '数字行 3 是 waving 行，官方只画 4 帧')
   assert.equal(result.pet.states.running.frameCount, 6, '未声明的行保持官方默认帧数')
   assert.deepEqual(result.pet.clickAnimations, ['amaterasu', 'chidoriDashRight'])
+})
+
+test('标准行元数据帧数超官方时封顶，非标准行不受限', () => {
+  const json = JSON.stringify({
+    id: 'x', displayName: 'x', description: 'x', spritesheetPath: 'a.png',
+    animations: {
+      kirin: { sourceRow: 'jumping', frameCount: 8 },
+      waitingSkill: { sourceRow: 'waiting', frameCount: 8 },
+      extra: { sourceRow: 10, frameCount: 8 },
+    },
+  })
+  const result = petFormat.parsePetJson(json, 11)
+  assert.equal(result.pet.states.kirin.frameCount, 5, 'jumping 官方 5 帧')
+  assert.equal(result.pet.states.waitingSkill.frameCount, 6, 'waiting 官方 6 帧')
+  assert.equal(result.pet.states.extra.frameCount, 8, '非标准行保持声明值')
 })
 
 test('v2 图集 11 行：前 9 行标准命名，第 10/11 行回退命名且 8 帧', () => {
