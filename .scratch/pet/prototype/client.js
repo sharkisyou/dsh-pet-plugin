@@ -65,15 +65,15 @@ function cycleNext(current, list) {
         border: none; background: rgba(40,40,40,.9); color: #fff; font-size: 11px; line-height: 1;
         cursor: pointer; display: none; }
       .dsh-pet-root:hover .dsh-pet-hide { display: block; }
-      .dsh-pet-menu-wrap { position: relative; display: inline-block; }
-      .dsh-pet-menu-wrap-overlay { position: fixed; right: 16px; bottom: 16px; z-index: 9500; display: block; }
+      .dsh-pet-menu-wrap { position: relative; display: inline-block; pointer-events: auto; }
+      .dsh-pet-menu-wrap-overlay { position: fixed; right: 16px; bottom: 16px; z-index: 9500; display: block; pointer-events: auto; }
       .dsh-pet-wake { position: relative; width: 34px; height: 34px;
         border-radius: 50%; background: rgba(30,30,30,.75); color: #fff; font-size: 16px; cursor: pointer;
         border: 1px solid rgba(255,255,255,.25); }
-      .dsh-pet-menu-backdrop { position: fixed; inset: 0; z-index: 9580; background: transparent; }
+      .dsh-pet-menu-backdrop { position: fixed; inset: 0; z-index: 9580; background: transparent; pointer-events: auto; }
       .dsh-pet-menu { position: absolute; top: calc(100% + 6px); right: 0; width: 260px; max-height: 60vh;
         overflow: auto; background: rgba(32,32,32,.97); border: 1px solid rgba(255,255,255,.15);
-        border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.35); padding: 8px; z-index: 9600; color: #eee; }
+        border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.35); padding: 8px; z-index: 9600; color: #eee; pointer-events: auto; }
       .dsh-pet-menu-overlay { top: auto; bottom: calc(100% + 6px); }
       .dsh-pet-menu h4 { margin: 6px 2px; font-size: 12px; color: #aaa; font-weight: 600; }
       .dsh-pet-item { display: flex; justify-content: space-between; align-items: center; gap: 6px;
