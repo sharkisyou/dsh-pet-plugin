@@ -30,9 +30,9 @@ Status: ready-for-agent
 
 ### 宠物库与导入
 
-- 库位置：`~/.dsh/pets/<id>/`，每包一个目录（pet.json + spritesheet）。
+- 库位置：`~/.dsh/pet-<id>.json` 扁平文件，每个宠物一个 JSON（标准化模型 + base64 图集内嵌）；UI 状态存 `~/.dsh/pet-state.json`。父目录 `~/.dsh/` 已存在，全程不依赖 shell（动态插件环境的 shell 服务不可靠，实测 run 会挂起）。
 - 头部菜单含"从 Codex 导入"区块：列出 `~/.codex/pets/` 下有效包（忽略空目录与无效 pet.json），可全选/单选。
-- 导入 = 复制 pet.json + 图集到库目录；同名默认跳过、可覆盖。
+- 导入 = 读源 pet.json + 图集 → 校验（图集 PNG/WebP、8 列网格）→ 序列化为单一 JSON 写回。
 - 首启不自动导入；库为空时宠物不显示，菜单引导导入。
 - 无默认宠物；用户导入并选择后显示。默认唤醒。
 
@@ -57,10 +57,9 @@ Status: ready-for-agent
 
 ### 控制与记忆
 
-- 控制入口：`conversation.session.header.actions` 按钮，菜单含唤醒/隐藏、宠物列表（按 displayName）、导入区块。
+- 控制入口：`conversation.session.header.actions` 按钮 + `shell.overlay` 右下角常驻 🐾 悬浮入口（空库、隐藏、无会话时也可打开菜单），菜单含唤醒/隐藏、宠物列表（按 displayName）、导入区块。
 - 宠物本体：默认右下角，可拖拽；本体上有隐藏按钮。
-- 宠物隐藏时，`shell.overlay` 显示 🐾 唤醒按钮（保证隐藏且无会话打开时仍可唤醒）。
-- 记忆（位置 / 所选宠物 / 唤醒状态）：由于客户端内建符号不含 localStorage，改存宿主状态文件 `~/.dsh/pets/state.json`（行为等价：刷新后恢复；多标签页最后写入者生效）。
+- 记忆（位置 / 所选宠物 / 唤醒状态）：存宿主 `~/.dsh/pet-state.json`（刷新后恢复；多标签页最后写入者生效）。
 - 显示尺寸约 96×104（单格 192×208 的 0.5 倍，可调）。
 
 ### 图集格式
@@ -74,7 +73,8 @@ Status: ready-for-agent
 
 - 监听 `agent/status`、`agent/error`；包装 `approval/request`、`tools/execute` waterfall 记录挂起窗口（审批并发用计数；`ask_user_question` 按工具名识别）；`subagent/start`、`subagent/end` 按可识别的父会话字段过滤并配对计数。
 - 按当前会话过滤状态；客户端通过 RPC 上报当前会话 id；页面无会话打开时一律显示空闲。
-- 宠物库读写：`fs` 服务读 pet.json/图集字节、写 state.json；导入复制走 `shell` 服务。
+- 宠物库读写：`fs` 服务读/写扁平 JSON 文件（`~/.dsh/pet-<id>.json` 与 `pet-state.json`）；不依赖 shell。
+- 主目录发现：`process.env` → `C:\Users` 枚举 → `sessionPersistence.locate()` 位置反推（本环境实际生效路径），失败时错误原因链返回给客户端展示。
 - 图集供给：`getPet` 返回 data URL（base64 RPC）。
 - RPC 方法（客户端调用）：`getStatus` / `setCurrentSession` / `listPets` / `listImportCandidates` / `importPet` / `getPet`（返回标准化模型 + 图集 data URL）/ `loadState` / `saveState`。选择宠物在客户端完成（调 `getPet` 后 `saveState`）；唤醒状态并入 `saveState`。
 
