@@ -605,7 +605,7 @@ function apply(ctx) {
     {
       name: 'settings.section',
       id: 'pet',
-      order: 20,
+      order: 30,
       label: '宠物',
       inject: () => ({
         listDirectory: typeof ctx.workspaces === 'object' && ctx.workspaces !== null
