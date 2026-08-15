@@ -85,6 +85,24 @@ const PET_CSS = `
   padding: 3px 8px; font-size: 12px; cursor: pointer; }
 .dsh-pet-btn:hover { background: rgba(255,255,255,.2); }
 .dsh-pet-muted { color: #999; font-size: 12px; }
+.dsh-pet-dialog-mask { position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,.5);
+  display: flex; align-items: center; justify-content: center; }
+.dsh-pet-dialog { background: #1e1e1e; color: #eee; border-radius: 12px;
+  width: min(560px, calc(100vw - 32px)); max-height: 70vh; display: flex; flex-direction: column;
+  padding: 16px; gap: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+.dsh-pet-dialog-title { font-size: 15px; font-weight: 600; }
+.dsh-pet-dialog-path { font-size: 12px; color: #aaa; word-break: break-all; }
+.dsh-pet-dialog-error { color: #f66; font-size: 12px; }
+.dsh-pet-dialog-crumbs { display: flex; flex-wrap: wrap; gap: 4px; font-size: 12px; }
+.dsh-pet-dialog-crumb { background: none; border: none; color: #8ab4f8; cursor: pointer;
+  padding: 2px 4px; border-radius: 4px; font-size: 12px; }
+.dsh-pet-dialog-crumb:hover { background: rgba(255,255,255,.08); }
+.dsh-pet-dialog-list { overflow-y: auto; min-height: 160px; max-height: 320px;
+  border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 4px; }
+.dsh-pet-dialog-row { display: block; width: 100%; text-align: left; background: none; border: none;
+  color: #eee; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.dsh-pet-dialog-row:hover { background: rgba(255,255,255,.08); }
+.dsh-pet-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
 `
 
 // ===== 客户端共享状态 =====
@@ -103,11 +121,8 @@ const store = {
   clickAnim: null,
   lastClickAnim: null,
   pos: { x: null, y: null },
-  importCandidates: [],
   initError: null,
-  importError: null,
   petsError: null,
-  diag: null,
   listeners: new Set(),
   version: 0,
 }
@@ -190,24 +205,6 @@ function ensureInit() {
   return initPromise
 }
 
-async function refreshCandidates() {
-  try {
-    const res = await petCall('listImportCandidates', {})
-    if (res !== null && typeof res === 'object' && res.ok) {
-      store.importCandidates = Array.isArray(res.candidates) ? res.candidates : []
-      store.importError = null
-      notify()
-    } else {
-      store.importError = '读取导入列表失败: ' +
-        (res !== null && typeof res === 'object' && typeof res.error === 'string' ? res.error : '无响应')
-      notify()
-    }
-  } catch (err) {
-    store.importError = '读取导入列表异常: ' + String(err)
-    console.error('[pet] listImportCandidates 失败', String(err))
-  }
-}
-
 async function refreshPets() {
   try {
     const list = await petCall('listPets', {})
@@ -223,24 +220,6 @@ async function refreshPets() {
   } catch (err) {
     store.petsError = '读取宠物库异常: ' + String(err)
     console.error('[pet] listPets 失败', String(err))
-  }
-}
-
-async function importPet(id, overwrite) {
-  try {
-    const res = await petCall('importPet', { id, overwrite: overwrite === true })
-    if (res !== null && typeof res === 'object' && res.ok) {
-      await refreshPets()
-      await refreshCandidates()
-      // 覆盖导入当前选中的宠物时，重载其新模型。
-      if (id === store.petId) await selectPet(id)
-      return null
-    }
-    return res !== null && typeof res === 'object' && typeof res.error === 'string'
-      ? res.error
-      : '导入失败'
-  } catch (err) {
-    return String(err)
   }
 }
 
@@ -443,41 +422,94 @@ function PetRoot(props) {
 
 // ===== 宠物设置面板 =====
 
-function PetMenu() {
+function PetMenu(props) {
   const s = useStore()
   const [importMsg, setImportMsg] = React.useState(null)
+  const [browser, setBrowser] = React.useState({
+    open: false,
+    path: null,
+    entries: [],
+    crumbs: [],
+    loading: false,
+    error: null,
+  })
 
   React.useEffect(() => {
-    refreshCandidates()
     refreshPets()
     setImportMsg(null)
-    petCall('getStatus', {}).then((res) => {
-      if (res !== null && typeof res === 'object') {
-        store.diag = { seen: res.seen, currentSession: res.currentSession }
-        notify()
-      }
-    }).catch(() => {})
   }, [])
 
-  async function onImport(id, overwrite) {
-    setImportMsg('导入中…')
-    const err = await importPet(id, overwrite)
-    setImportMsg(err === null ? '导入成功' : err)
+  async function importFromPath(path) {
+    console.log('[pet] importPet request', { path })
+    try {
+      const res = await petCall('importPet', { path })
+      console.log('[pet] importPet response', res)
+      if (res !== null && typeof res === 'object' && res.ok) {
+        await refreshPets()
+        if (typeof res.imported === 'number') {
+          const parts = [`导入成功 ${res.imported} 个`]
+          if (res.skipped > 0) parts.push(`跳过 ${res.skipped} 个`)
+          if (res.failed > 0) {
+            parts.push(`失败 ${res.failed} 个`)
+            if (Array.isArray(res.errors) && res.errors.length > 0) {
+              parts.push(`详情：${res.errors.join('；')}`)
+            }
+          }
+          const message = parts.join('，')
+          if (res.failed > 0) window.alert(message)
+          return message
+        }
+        return null
+      }
+      const errText = res !== null && typeof res === 'object' && typeof res.error === 'string'
+        ? res.error
+        : '导入失败'
+      console.error('[pet] importPet 失败', errText)
+      window.alert('导入失败：' + errText)
+      return errText
+    } catch (err) {
+      console.error('[pet] importPet 异常', err)
+      window.alert('导入异常：' + String(err))
+      return String(err)
+    }
   }
 
-  async function onImportAll() {
-    setImportMsg('导入中…')
-    const pending = s.importCandidates.filter((c) => c.valid && !c.existsInLibrary)
-    if (pending.length === 0) {
-      setImportMsg('没有可导入的宠物')
+  async function openBrowser() {
+    if (typeof props.listDirectory !== 'function') {
+      setImportMsg('当前环境不支持目录浏览')
       return
     }
-    let failed = 0
-    for (const c of pending) {
-      const err = await importPet(c.id, false)
-      if (err !== null) failed++
+    setBrowser({ open: true, path: null, entries: [], crumbs: [], loading: true, error: null })
+    try {
+      const listing = await props.listDirectory()
+      setBrowser({ open: true, path: listing.path, entries: listing.entries, crumbs: listing.crumbs, loading: false, error: null })
+    } catch (err) {
+      setBrowser({ open: true, path: null, entries: [], crumbs: [], loading: false, error: String(err && err.message ? err.message : err) })
     }
-    setImportMsg(failed === 0 ? `已导入 ${pending.length} 只宠物` : `导入完成，${failed} 只失败`)
+  }
+
+  async function navigateBrowser(nextPath) {
+    setBrowser((b) => ({ ...b, loading: true, error: null }))
+    try {
+      const listing = await props.listDirectory(nextPath)
+      setBrowser({ open: true, path: listing.path, entries: listing.entries, crumbs: listing.crumbs, loading: false, error: null })
+    } catch (err) {
+      setBrowser((b) => ({ ...b, loading: false, error: String(err && err.message ? err.message : err) }))
+    }
+  }
+
+  function closeBrowser() {
+    setBrowser({ open: false, path: null, entries: [], crumbs: [], loading: false, error: null })
+  }
+
+  function chooseBrowserPath() {
+    const path = browser.path
+    closeBrowser()
+    if (path === null) return
+    setImportMsg('导入中…')
+    importFromPath(path).then((err) => {
+      setImportMsg(err === null ? '导入成功' : err)
+    })
   }
 
   return React.createElement(
@@ -494,7 +526,7 @@ function PetMenu() {
     s.pets.length === 0
       ? React.createElement('div', { className: 'dsh-pet-muted' },
           s.petsError !== null ? s.petsError
-            : (s.initError !== null ? s.initError : '宠物库为空，请先从下方导入'))
+            : (s.initError !== null ? s.initError : '宠物库为空，请先导入宠物'))
       : s.pets.map((pet) => React.createElement(
           'div',
           {
@@ -504,46 +536,99 @@ function PetMenu() {
           },
           React.createElement('span', null, pet.displayName + (pet.id === s.petId ? ' ✓' : '')),
         )),
-    React.createElement('h4', null, '从 Codex 导入'),
-    s.importCandidates.length === 0
-      ? React.createElement('div', { className: 'dsh-pet-muted' },
-          s.importError !== null ? s.importError : '未发现可导入的宠物包')
-      : React.createElement(
-          'div',
-          null,
-          React.createElement(
-            'div',
-            { className: 'dsh-pet-item' },
-            React.createElement('span', null, `共 ${s.importCandidates.filter((c) => c.valid).length} 只可导入`),
-            React.createElement('button', { className: 'dsh-pet-btn', onClick: onImportAll }, '全部导入'),
-          ),
-          s.importCandidates.filter((c) => c.valid).map((c) => React.createElement(
-            'div',
-            { key: c.id, className: 'dsh-pet-item' },
-            React.createElement('span', null, c.displayName),
-            c.existsInLibrary
-              ? React.createElement('button', { className: 'dsh-pet-btn', onClick: () => onImport(c.id, true) }, '覆盖')
-              : React.createElement('button', { className: 'dsh-pet-btn', onClick: () => onImport(c.id, false) }, '导入'),
-          )),
-        ),
+    React.createElement(
+      'div',
+      { className: 'dsh-pet-item' },
+      React.createElement('span', null, '导入宠物'),
+      React.createElement('button', { className: 'dsh-pet-btn', onClick: openBrowser }, '选择路径…'),
+    ),
     importMsg !== null
       ? React.createElement('div', { className: 'dsh-pet-muted' }, importMsg)
       : null,
-    s.diag !== null && s.diag.seen !== undefined
+    browser.open
       ? React.createElement(
           'div',
-          { className: 'dsh-pet-muted' },
-          `事件 status=${s.diag.seen.status} tools=${s.diag.seen.tools} approvals=${s.diag.seen.approvals} subagents=${s.diag.seen.subagents} errors=${s.diag.seen.errors} 会话=${s.diag.currentSession === null ? '未知(跟随一切)' : s.diag.currentSession}`,
+          { className: 'dsh-pet-dialog-mask', onClick: closeBrowser },
+          React.createElement(
+            'div',
+            { className: 'dsh-pet-dialog', onClick: (e) => e.stopPropagation() },
+            React.createElement('div', { className: 'dsh-pet-dialog-title' }, '选择宠物包目录'),
+            React.createElement('div', { className: 'dsh-pet-dialog-path' }, browser.path || '加载中…'),
+            browser.error !== null
+              ? React.createElement('div', { className: 'dsh-pet-dialog-error' }, browser.error)
+              : null,
+            React.createElement(
+              'div',
+              { className: 'dsh-pet-dialog-crumbs' },
+              browser.crumbs.map((c) => React.createElement(
+                'button',
+                { key: c.path, className: 'dsh-pet-dialog-crumb', onClick: () => navigateBrowser(c.path) },
+                c.name,
+              )),
+            ),
+            React.createElement(
+              'div',
+              { className: 'dsh-pet-dialog-list' },
+              browser.entries.map((entry) => React.createElement(
+                'button',
+                { key: entry.path, className: 'dsh-pet-dialog-row', onClick: () => navigateBrowser(entry.path) },
+                entry.name,
+              )),
+            ),
+            React.createElement(
+              'div',
+              { className: 'dsh-pet-dialog-actions' },
+              React.createElement('button', { className: 'dsh-pet-btn', onClick: closeBrowser }, '取消'),
+              React.createElement('button', { className: 'dsh-pet-btn', onClick: chooseBrowserPath, disabled: browser.path === null }, '选择此目录'),
+            ),
+          ),
         )
       : null,
   )
 }
 
+// ===== 设置页导航图标修补 =====
+// DSH 设置面板的导航图标由宿主根据 section id 硬编码；pet 不在白名单时会回退成通用齿轮。
+// 这里在运行时把“宠物”导航项的齿轮替换为 Unicode 熊猫图标，避免出现“齿轮 + 文本”的双图标。
+function patchPetNavIcon() {
+  if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return () => {}
+
+  const NAV_LABEL = '宠物'
+  const PET_GLYPH = '🐼'
+
+  function patchOnce() {
+    const buttons = document.querySelectorAll('button')
+    for (const btn of buttons) {
+      if (btn.dataset.dshPetNav === '1') continue
+      const children = Array.from(btn.children)
+      if (children.length < 2) continue
+      const label = children[children.length - 1]
+      if (label.tagName !== 'SPAN' || label.textContent.trim() !== NAV_LABEL) continue
+      if (!btn.closest('[role="dialog"]')) continue
+
+      btn.dataset.dshPetNav = '1'
+      const icon = children[0]
+      const glyph = document.createElement('span')
+      glyph.textContent = PET_GLYPH
+      glyph.setAttribute('aria-hidden', 'true')
+      glyph.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;flex:none;width:16px;height:16px;font-size:15px;line-height:1;'
+      icon.replaceWith(glyph)
+    }
+  }
+
+  patchOnce()
+  const observer = new MutationObserver(patchOnce)
+  observer.observe(document.body, { childList: true, subtree: true })
+  return () => observer.disconnect()
+}
+
 // ===== 插件注册 =====
 
-const inject = ['slots']
+const inject = ['slots', 'workspaces']
 
 function apply(ctx) {
+  ctx.effect(() => patchPetNavIcon(), 'dsh-pet: 设置页导航图标')
+
   ctx.effect(() => {
     if (typeof document === 'undefined') return
     const tag = document.createElement('style')
@@ -559,7 +644,20 @@ function apply(ctx) {
   ))
 
   ctx.slots.inject('settings.section', () => ctx.slots.register(
-    { name: 'settings.section', id: 'pet', order: 20, label: '宠物' },
+    {
+      name: 'settings.section',
+      id: 'pet',
+      order: 20,
+      label: '宠物',
+      inject: () => ({
+        listDirectory: typeof ctx.workspaces === 'object' && ctx.workspaces !== null
+          ? (path) => ctx.workspaces.listDirectory(path)
+          : null,
+        createDirectory: typeof ctx.workspaces === 'object' && ctx.workspaces !== null
+          ? (path, name) => ctx.workspaces.createDirectory(path, name)
+          : null,
+      }),
+    },
     (props) => React.createElement(PetMenu, props),
   ))
 }

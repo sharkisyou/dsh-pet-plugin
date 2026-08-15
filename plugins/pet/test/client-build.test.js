@@ -43,7 +43,7 @@ test('client bundle 可作为经典脚本解析并注册工厂', () => {
   const exportsOf = handoff.factory(fakeRequire)
   assert.equal(typeof exportsOf.apply, 'function')
   assert.equal(typeof exportsOf.extractCurrentSessionId, 'function')
-  assert.deepEqual(exportsOf.inject, ['slots'])
+  assert.deepEqual(exportsOf.inject, ['slots', 'workspaces'])
   assert.equal(exportsOf.extractCurrentSessionId({ current: 'session-1' }), 'session-1')
   assert.equal(exportsOf.extractCurrentSessionId({ current: undefined }), null)
 })

@@ -528,16 +528,62 @@ export function apply(ctx) {
   async function importPet(args) {
     try {
       await ensureInit()
+      const rawPath = args !== null && typeof args === 'object' && typeof args.path === 'string' ? args.path : null
       const rawId = args !== null && typeof args === 'object' && typeof args.id === 'string' ? args.id : null
-      const overwrite = args !== null && typeof args === 'object' && args.overwrite === true
-      const id = safeLibraryId(rawId)
-      if (id === null) return { ok: false, error: '非法宠物 id' }
-      if (sourceDir === null) return { ok: false, error: '无法定位 Codex 宠物目录' }
-      if (await pathExists(petDir(id)) && !overwrite) {
-        return { ok: false, error: '同名宠物已存在，请先覆盖' }
+      let srcBase
+      let id
+      if (rawPath !== null) {
+        srcBase = normalizePath(rawPath)
+        let srcStat
+        try {
+          srcStat = await stat(srcBase)
+        } catch {
+          return { ok: false, error: '路径不存在' }
+        }
+        if (!srcStat.isDirectory()) return { ok: false, error: '路径不是目录' }
+        const directPetJson = joinPath(srcBase, 'pet.json')
+        if (!(await pathExists(directPetJson))) {
+          // 所选目录不是单个宠物包：尝试批量导入其直接子目录中的宠物包。
+          let childEntries
+          try {
+            childEntries = await readdir(srcBase, { withFileTypes: true })
+          } catch {
+            return { ok: false, error: '路径不可读' }
+          }
+          const summary = { imported: 0, skipped: 0, failed: 0, errors: [] }
+          for (const child of childEntries) {
+            if (!child.isDirectory()) continue
+            const childPath = joinPath(srcBase, child.name)
+            if (!(await pathExists(joinPath(childPath, 'pet.json')))) continue
+            const childResult = await importPet({ path: childPath })
+            console.log('[pet] 批量导入子目录', child.name, childResult)
+            if (childResult.ok) {
+              summary.imported++
+            } else if (typeof childResult.error === 'string' && childResult.error.includes('同名宠物已存在')) {
+              summary.skipped++
+            } else {
+              summary.failed++
+              summary.errors.push(`${child.name}: ${childResult.error}`)
+            }
+          }
+          if (summary.imported === 0 && summary.skipped === 0 && summary.failed === 0) {
+            return { ok: false, error: '所选目录下没有找到宠物包' }
+          }
+          return { ok: true, ...summary }
+        }
+        const jsonForId = await readJson(directPetJson).catch(() => null)
+        const declaredId = jsonForId !== null && typeof jsonForId === 'object' && typeof jsonForId.id === 'string' ? jsonForId.id : null
+        id = safeLibraryId(declaredId)
+        if (id === null) return { ok: false, error: '宠物包缺少合法 id' }
+      } else {
+        id = safeLibraryId(rawId)
+        if (id === null) return { ok: false, error: '非法宠物 id' }
+        if (sourceDir === null) return { ok: false, error: '无法定位 Codex 宠物目录' }
+        srcBase = joinPath(sourceDir, id)
       }
-
-      const srcBase = joinPath(sourceDir, id)
+      if (await pathExists(petDir(id))) {
+        return { ok: false, error: '同名宠物已存在' }
+      }
       const json = await readJson(joinPath(srcBase, 'pet.json'))
       const rawSprite = typeof json.spritesheetPath === 'string' ? json.spritesheetPath : 'spritesheet.png'
       const spriteName = safeSpriteName(rawSprite)
@@ -569,6 +615,7 @@ export function apply(ctx) {
       spriteCache.delete(id)
       return { ok: true }
     } catch (error) {
+      console.error('[pet] importPet 异常', error)
       return { ok: false, error: errorText(error) }
     }
   }
