@@ -42,6 +42,8 @@ const PET_CSS = `
   overflow: auto; background: rgba(32,32,32,.97); border: 1px solid rgba(255,255,255,.15);
   border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.35); padding: 8px; z-index: 9600; color: #eee; pointer-events: auto; }
 .dsh-pet-menu-overlay { top: auto; bottom: calc(100% + 6px); }
+.dsh-pet-menu-settings { position: static; width: 100%; max-height: none; overflow: visible; background: transparent;
+  border: none; box-shadow: none; padding: 0; color: inherit; pointer-events: auto; }
 .dsh-pet-menu:focus { outline: none; }
 .dsh-pet-menu h4 { margin: 6px 2px; font-size: 12px; color: #aaa; font-weight: 600; }
 .dsh-pet-item { display: flex; justify-content: space-between; align-items: center; gap: 6px;
@@ -404,29 +406,43 @@ function PetRoot(props) {
   if (s.wake && s.pet !== null && s.spriteUrl !== null) {
     return React.createElement(PetView)
   }
-  // 隐藏或尚未选择宠物时：右下角悬浮入口（打开菜单）。
-  return React.createElement(PetMenu, { variant: 'overlay' })
+  // 隐藏或尚未选择宠物时不再占用右下角；控制入口在头部按钮与设置页。
+  return null
 }
 
 // ===== 宠物菜单（会话头部与悬浮双入口共用）=====
 
 function PetMenu(props) {
   const s = useStore()
-  const [open, setOpen] = React.useState(false)
+  const requested = props !== null && typeof props === 'object' ? props.variant : undefined
+  const variant = requested === 'settings' ? 'settings'
+    : requested === 'overlay' ? 'overlay'
+    : 'header'
+  const [open, setOpen] = React.useState(variant === 'settings')
   const [importMsg, setImportMsg] = React.useState(null)
   const menuRef = React.useRef(null)
-  const variant = props !== null && typeof props === 'object' && props.variant === 'overlay'
-    ? 'overlay'
-    : 'header'
 
   React.useEffect(() => {
-    if (!open) return
+    if (!open || variant === 'settings') return
     if (typeof document !== 'undefined' && document.activeElement !== null &&
         typeof document.activeElement.blur === 'function') {
       document.activeElement.blur()
     }
     if (menuRef.current !== null) menuRef.current.focus({ preventScroll: true })
-  }, [open])
+  }, [open, variant])
+
+  React.useEffect(() => {
+    if (variant !== 'settings') return
+    refreshCandidates()
+    refreshPets()
+    setImportMsg(null)
+    petCall('getStatus', {}).then((res) => {
+      if (res !== null && typeof res === 'object') {
+        store.diag = { seen: res.seen, currentSession: res.currentSession }
+        notify()
+      }
+    }).catch(() => {})
+  }, [variant])
 
   function toggle() {
     const next = !open
@@ -465,18 +481,17 @@ function PetMenu(props) {
     setImportMsg(failed === 0 ? `已导入 ${pending.length} 只宠物` : `导入完成，${failed} 只失败`)
   }
 
-  const menu = open
-    ? React.createElement(
-        'div',
-        { className: 'dsh-pet-menu-wrap' },
-        React.createElement('div', { className: 'dsh-pet-menu-backdrop', onClick: () => setOpen(false) }),
-        React.createElement(
+  const menuClass = variant === 'overlay' ? 'dsh-pet-menu dsh-pet-menu-overlay'
+    : variant === 'settings' ? 'dsh-pet-menu dsh-pet-menu-settings'
+    : 'dsh-pet-menu'
+
+  const panel = React.createElement(
           'div',
           {
-            className: variant === 'overlay' ? 'dsh-pet-menu dsh-pet-menu-overlay' : 'dsh-pet-menu',
+            className: menuClass,
             onClick: (e) => e.stopPropagation(),
             ref: menuRef,
-            tabIndex: -1,
+            ...variant === 'settings' ? {} : { tabIndex: -1 },
           },
           React.createElement('h4', null, '宠物'),
           React.createElement(
@@ -495,7 +510,7 @@ function PetMenu(props) {
                 {
                   key: pet.id,
                   className: 'dsh-pet-item' + (pet.id === s.petId ? ' selected' : ''),
-                  onClick: () => { selectPet(pet.id); setOpen(false) },
+                  onClick: () => { selectPet(pet.id); if (variant !== 'settings') setOpen(false) },
                 },
                 React.createElement('span', null, pet.displayName + (pet.id === s.petId ? ' ✓' : '')),
               )),
@@ -531,9 +546,20 @@ function PetMenu(props) {
                 `事件 status=${s.diag.seen.status} tools=${s.diag.seen.tools} approvals=${s.diag.seen.approvals} subagents=${s.diag.seen.subagents} errors=${s.diag.seen.errors} 会话=${s.diag.currentSession === null ? '未知(跟随一切)' : s.diag.currentSession}`,
               )
             : null,
-        ),
-      )
+        )
+
+  const menu = open
+    ? (variant === 'settings'
+      ? panel
+      : React.createElement(
+          'div',
+          { className: 'dsh-pet-menu-wrap' },
+          React.createElement('div', { className: 'dsh-pet-menu-backdrop', onClick: () => setOpen(false) }),
+          panel,
+        ))
     : null
+
+  if (variant === 'settings') return menu
 
   return React.createElement(
     'div',
@@ -595,6 +621,11 @@ function apply(ctx) {
   ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register(
     { name: 'conversation.session.header.actions', id: 'dsh-pet', order: 30, label: '宠物' },
     (props) => React.createElement(PetHeaderButton, props),
+  ))
+
+  ctx.slots.inject('settings.section', () => ctx.slots.register(
+    { name: 'settings.section', id: 'pet', order: 20, label: '宠物' },
+    (props) => React.createElement(PetMenu, { variant: 'settings', ...props }),
   ))
 }
 
