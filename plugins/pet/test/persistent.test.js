@@ -65,7 +65,6 @@ test('client bundle apply 注册两个 Slot 入口', () => {
   assert.doesNotThrow(() => plugin.apply(ctx))
   assert.deepEqual(injected.map((x) => x.key), [
     'shell.overlay',
-    'conversation.session.header.actions',
     'settings.section',
   ])
   assert.equal(styleEffect.label, 'dsh-pet: 样式')

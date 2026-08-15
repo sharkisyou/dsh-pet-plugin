@@ -573,32 +573,6 @@ function PetMenu(props) {
   )
 }
 
-// ===== 头部入口（携带当前会话 id 上报）=====
-
-function PetHeaderButton(props) {
-  const sessionId = props !== null && typeof props === 'object' ? props.sessionId : undefined
-
-  React.useEffect(() => {
-    const id = typeof sessionId === 'string' ? sessionId : null
-    if (id !== store.currentSession) {
-      store.currentSession = id
-      notify()
-      petCall('setCurrentSession', { sessionId: id }).catch((err) => {
-        console.error('[pet] setCurrentSession 失败', String(err))
-      })
-    }
-    return () => {
-      if (store.currentSession === id) {
-        store.currentSession = null
-        notify()
-        petCall('setCurrentSession', { sessionId: null }).catch(() => {})
-      }
-    }
-  }, [sessionId])
-
-  return React.createElement(PetMenu, { variant: 'header' })
-}
-
 // ===== 插件注册 =====
 
 const inject = ['slots']
@@ -616,11 +590,6 @@ function apply(ctx) {
   ctx.slots.inject('shell.overlay', () => ctx.slots.register(
     { name: 'shell.overlay', id: 'dsh-pet', order: 0, label: '宠物' },
     (props) => React.createElement(PetRoot, props),
-  ))
-
-  ctx.slots.inject('conversation.session.header.actions', () => ctx.slots.register(
-    { name: 'conversation.session.header.actions', id: 'dsh-pet', order: 30, label: '宠物' },
-    (props) => React.createElement(PetHeaderButton, props),
   ))
 
   ctx.slots.inject('settings.section', () => ctx.slots.register(
