@@ -74,35 +74,65 @@ const PET_CSS = `
   border: none; background: rgba(40,40,40,.9); color: #fff; font-size: 11px; line-height: 1;
   cursor: pointer; display: none; }
 .dsh-pet-root:hover .dsh-pet-hide { display: block; }
- .dsh-pet-menu { position: static; width: 100%; max-height: none; overflow: visible; background: transparent;
-  border: none; box-shadow: none; padding: 0; color: inherit; pointer-events: auto; }
-.dsh-pet-menu h4 { margin: 6px 2px; font-size: 12px; color: #aaa; font-weight: 600; }
-.dsh-pet-item { display: flex; justify-content: space-between; align-items: center; gap: 6px;
-  padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 13px; }
-.dsh-pet-item:hover { background: rgba(255,255,255,.08); }
-.dsh-pet-item.selected { background: rgba(120,160,255,.18); }
-.dsh-pet-btn { background: rgba(255,255,255,.12); color: #eee; border: none; border-radius: 6px;
-  padding: 3px 8px; font-size: 12px; cursor: pointer; }
-.dsh-pet-btn:hover { background: rgba(255,255,255,.2); }
-.dsh-pet-muted { color: #999; font-size: 12px; }
+.dsh-pet-menu { position: static; width: 100%; max-height: none; overflow: visible;
+  background: transparent; border: none; box-shadow: none; padding: 0;
+  color: inherit; pointer-events: auto; }
+.dsh-pet-menu h4 { margin: 14px 2px 8px; font-size: 11px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--dsw-alias-label-tertiary, #999); font-weight: 600; }
+.dsh-pet-menu h4:first-child { margin-top: 2px; }
+.dsh-pet-item { display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 5px 2px; border-radius: 8px; cursor: pointer; font-size: 13px;
+  background: transparent; border: none;
+  transition: background .15s ease; }
+.dsh-pet-item:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(255,255,255,.06)); }
+.dsh-pet-item.selected { background: transparent; }
+.dsh-pet-btn { background: var(--dsw-alias-bg-module-platform, rgba(255,255,255,.1));
+  color: var(--dsw-alias-label-primary, #eee);
+  border: 1px solid var(--dsw-alias-border-l2, rgba(255,255,255,.1));
+  border-radius: 8px; padding: 5px 12px; font-size: 12px; font-weight: 500; cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease; }
+.dsh-pet-btn:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(255,255,255,.16));
+  border-color: var(--dsw-alias-label-dimmed, rgba(255,255,255,.22)); }
+.dsh-pet-btn:active { transform: translateY(1px); }
+.dsh-pet-muted { color: var(--dsw-alias-label-tertiary, #999); font-size: 12px; }
 .dsh-pet-dialog-mask { position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,.5);
   display: flex; align-items: center; justify-content: center; }
-.dsh-pet-dialog { background: #1e1e1e; color: #eee; border-radius: 12px;
+.dsh-pet-dialog { background: var(--dsw-alias-bg-layer-2, #1e1e1e); color: var(--dsw-alias-label-primary, #eee);
+  border: 1px solid var(--dsw-alias-border-l2, rgba(255,255,255,.1)); border-radius: 16px;
   width: min(560px, calc(100vw - 32px)); max-height: 70vh; display: flex; flex-direction: column;
-  padding: 16px; gap: 10px; box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+  padding: 18px; gap: 12px; box-shadow: 0 18px 50px rgba(0,0,0,.45); }
 .dsh-pet-dialog-title { font-size: 15px; font-weight: 600; }
-.dsh-pet-dialog-path { font-size: 12px; color: #aaa; word-break: break-all; }
+.dsh-pet-dialog-path { font-size: 12px; color: var(--dsw-alias-label-tertiary, #aaa); word-break: break-all;
+  background: var(--dsw-alias-bg-layer-3, rgba(255,255,255,.04)); border-radius: 8px; padding: 6px 10px; }
 .dsh-pet-dialog-error { color: #f66; font-size: 12px; }
 .dsh-pet-dialog-crumbs { display: flex; flex-wrap: wrap; gap: 4px; font-size: 12px; }
-.dsh-pet-dialog-crumb { background: none; border: none; color: #8ab4f8; cursor: pointer;
-  padding: 2px 4px; border-radius: 4px; font-size: 12px; }
-.dsh-pet-dialog-crumb:hover { background: rgba(255,255,255,.08); }
+.dsh-pet-dialog-crumb { background: none; border: none; color: var(--dsw-alias-brand-primary, #8ab4f8);
+  cursor: pointer; padding: 3px 6px; border-radius: 6px; font-size: 12px; }
+.dsh-pet-dialog-crumb:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(255,255,255,.08)); }
 .dsh-pet-dialog-list { overflow-y: auto; min-height: 160px; max-height: 320px;
-  border: 1px solid rgba(255,255,255,.1); border-radius: 8px; padding: 4px; }
+  border: 1px solid var(--dsw-alias-border-l2, rgba(255,255,255,.1)); border-radius: 10px; padding: 4px; }
 .dsh-pet-dialog-row { display: block; width: 100%; text-align: left; background: none; border: none;
-  color: #eee; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-.dsh-pet-dialog-row:hover { background: rgba(255,255,255,.08); }
+  color: var(--dsw-alias-label-primary, #eee); padding: 7px 10px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; transition: background .12s ease; }
+.dsh-pet-dialog-row:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(255,255,255,.08)); }
 .dsh-pet-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.dsh-pet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; }
+.dsh-pet-card { display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 10px 8px 8px; border-radius: 12px; cursor: pointer; user-select: none;
+  background: var(--dsw-alias-bg-layer-2, rgba(255,255,255,.03));
+  border: 1px solid var(--dsw-alias-border-l2, rgba(255,255,255,.09));
+  transition: background .15s ease, border-color .15s ease, transform .15s ease, box-shadow .15s ease; }
+.dsh-pet-card:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(255,255,255,.07));
+  border-color: var(--dsw-alias-label-dimmed, rgba(255,255,255,.2)); transform: translateY(-1px); }
+.dsh-pet-card.selected { background: var(--dsw-alias-interactive-bg-active, rgba(120,160,255,.16));
+  border-color: var(--dsw-alias-brand-primary, rgba(120,160,255,.5));
+  box-shadow: 0 0 0 1px var(--dsw-alias-brand-primary, rgba(120,160,255,.3)); }
+.dsh-pet-card-preview { width: 96px; height: 104px; display: flex; align-items: center; justify-content: center;
+  overflow: hidden; border-radius: 8px; background: rgba(0,0,0,.12); }
+.dsh-pet-card-canvas { position: relative; width: 96px; height: 104px; overflow: hidden; }
+.dsh-pet-card-frame { position: absolute; left: 0; top: 0; image-rendering: pixelated; pointer-events: none; }
+.dsh-pet-card-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-primary, #eee); }
 `
 
 // ===== 客户端共享状态 =====
@@ -420,6 +450,90 @@ function PetRoot(props) {
   return null
 }
 
+// ===== 宠物预览卡片 =====
+
+function PetPreviewCard({ pet, selected, onSelect }) {
+  const [data, setData] = React.useState(null)
+  const [tick, setTick] = React.useState(0)
+  const [animIndex, setAnimIndex] = React.useState(0)
+  const animRef = React.useRef({ name: null, at: 0 })
+
+  React.useEffect(() => {
+    let alive = true
+    petCall('getPet', { id: pet.id }).then((res) => {
+      if (!alive || res === null || typeof res !== 'object' || res.ok !== true) return
+      setData({
+        spriteUrl: res.spriteDataUrl,
+        pet: res.pet,
+        atlasRows: res.atlas !== null && typeof res.atlas === 'object' && res.atlas.rows > 0
+          ? res.atlas.rows
+          : 9,
+      })
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [pet.id])
+
+  React.useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 80)
+    return () => clearInterval(id)
+  }, [])
+
+  if (data === null) {
+    return React.createElement(
+      'div',
+      {
+        className: 'dsh-pet-card' + (selected ? ' selected' : ''),
+        onClick: () => onSelect(pet.id),
+      },
+      React.createElement('div', { className: 'dsh-pet-card-preview' }, '加载中…'),
+      React.createElement('div', { className: 'dsh-pet-card-name' }, pet.displayName),
+    )
+  }
+
+  const PREVIEW_ORDER = ['idle', 'waving', 'jumping', 'running', 'waiting', 'failed']
+  const animNames = PREVIEW_ORDER.filter((name) => data.pet.states[name] !== undefined)
+  const animName = animNames.length > 0
+    ? animNames[animIndex % animNames.length]
+    : Object.keys(data.pet.states)[0]
+  const anim = data.pet.states[animName]
+  if (animRef.current.name !== animName) {
+    animRef.current = { name: animName, at: Date.now() }
+  }
+  const { frame } = frameIndex(anim, Date.now() - animRef.current.at)
+  const cellW = 96
+  const cellH = 104
+  const frameStyle = {
+    width: cellW * 8,
+    height: cellH * data.atlasRows,
+    transform: `translate(${-cellW * frame}px, ${-cellH * anim.row}px)`,
+  }
+
+  function handleClick() {
+    onSelect(pet.id)
+    if (animNames.length > 0) {
+      setAnimIndex((i) => (i + 1) % animNames.length)
+    }
+  }
+
+  return React.createElement(
+    'div',
+    {
+      className: 'dsh-pet-card' + (selected ? ' selected' : ''),
+      onClick: handleClick,
+    },
+    React.createElement(
+      'div',
+      { className: 'dsh-pet-card-preview' },
+      React.createElement(
+        'div',
+        { className: 'dsh-pet-card-canvas' },
+        React.createElement('img', { className: 'dsh-pet-card-frame', src: data.spriteUrl, style: frameStyle, alt: '' }),
+      ),
+    ),
+    React.createElement('div', { className: 'dsh-pet-card-name' }, pet.displayName),
+  )
+}
+
 // ===== 宠物设置面板 =====
 
 function PetMenu(props) {
@@ -522,26 +636,27 @@ function PetMenu(props) {
       React.createElement('span', null, s.wake ? '已唤醒' : '已隐藏'),
       React.createElement('button', { className: 'dsh-pet-btn', onClick: () => setWake(!s.wake) }, s.wake ? '隐藏' : '唤醒'),
     ),
-    React.createElement('h4', null, '选择宠物'),
-    s.pets.length === 0
-      ? React.createElement('div', { className: 'dsh-pet-muted' },
-          s.petsError !== null ? s.petsError
-            : (s.initError !== null ? s.initError : '宠物库为空，请先导入宠物'))
-      : s.pets.map((pet) => React.createElement(
-          'div',
-          {
-            key: pet.id,
-            className: 'dsh-pet-item' + (pet.id === s.petId ? ' selected' : ''),
-            onClick: () => { selectPet(pet.id) },
-          },
-          React.createElement('span', null, pet.displayName + (pet.id === s.petId ? ' ✓' : '')),
-        )),
     React.createElement(
       'div',
       { className: 'dsh-pet-item' },
       React.createElement('span', null, '导入宠物'),
       React.createElement('button', { className: 'dsh-pet-btn', onClick: openBrowser }, '选择路径…'),
     ),
+    React.createElement('h4', null, '选择宠物'),
+    s.pets.length === 0
+      ? React.createElement('div', { className: 'dsh-pet-muted' },
+          s.petsError !== null ? s.petsError
+            : (s.initError !== null ? s.initError : '宠物库为空，请先导入宠物'))
+      : React.createElement(
+          'div',
+          { className: 'dsh-pet-grid' },
+          s.pets.map((pet) => React.createElement(PetPreviewCard, {
+            key: pet.id,
+            pet,
+            selected: pet.id === s.petId,
+            onSelect: (id) => { selectPet(id) },
+          })),
+        ),
     importMsg !== null
       ? React.createElement('div', { className: 'dsh-pet-muted' }, importMsg)
       : null,
