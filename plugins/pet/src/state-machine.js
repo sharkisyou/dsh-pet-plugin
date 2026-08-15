@@ -1,7 +1,6 @@
 'use strict'
 // 宠物状态机：DSH 信号事件流 → 宠物状态与浮层文本（纯逻辑，无副作用）。
 
-const FAILED_TIMEOUT_MS = 10000
 const REPLY_BUBBLE_MS = 5000
 
 const STATE = { idle: 'idle', working: 'working', waiting: 'waiting', failed: 'failed' }
@@ -48,9 +47,6 @@ function createPetStateMachine() {
     const ts = event.ts
 
     if (event.kind === 'tick') {
-      if (failedAt !== null && ts - failedAt >= FAILED_TIMEOUT_MS) {
-        failedAt = null
-      }
       return compute(ts)
     }
 
@@ -101,4 +97,4 @@ function createPetStateMachine() {
   return { apply }
 }
 
-module.exports = { createPetStateMachine, FAILED_TIMEOUT_MS, REPLY_BUBBLE_MS }
+module.exports = { createPetStateMachine, REPLY_BUBBLE_MS }

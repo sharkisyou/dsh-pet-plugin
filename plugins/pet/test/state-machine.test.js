@@ -63,11 +63,15 @@ test('出错 → 失败"出错"；下一次活动清除失败', () => {
   })
 })
 
-test('失败若 10 秒无活动自动回空闲', () => {
+test('失败不会因时间流逝自动清除，只有下一次真实活动才清除', () => {
   const sm = make()
   sm.apply({ kind: 'error', ts: 100 })
   assert.deepEqual(sm.apply({ kind: 'tick', ts: 9100 }), { state: 'failed', bubble: '出错' })
-  assert.deepEqual(sm.apply({ kind: 'tick', ts: 10101 }), { state: 'idle', bubble: '空闲' })
+  assert.deepEqual(sm.apply({ kind: 'tick', ts: 10101 }), { state: 'failed', bubble: '出错' })
+  assert.deepEqual(sm.apply({ kind: 'tick', ts: 999999 }), { state: 'failed', bubble: '出错' })
+  assert.deepEqual(sm.apply({ kind: 'agent-status', status: 'running', ts: 1000000 }), {
+    state: 'working', bubble: '思考中',
+  })
 })
 
 test('优先级：失败 > 等待 > 工作 > 空闲', () => {
