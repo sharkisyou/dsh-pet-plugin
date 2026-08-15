@@ -46,6 +46,7 @@ function cycleNext(current, list) {
 // 不要在 factory 内使用 ESM import/export。
 
 const React = require('react')
+const ReactDOM = require('react-dom')
 
 const STATUS_POLL_MS = 500
 const ANIM_TICK_MS = 80
@@ -64,7 +65,10 @@ async function petCall(method, args = {}) {
 // ===== 样式 =====
 
 const PET_CSS = `
-.dsh-pet-root { position: fixed; z-index: 9500; pointer-events: auto; user-select: none; }
+/* 宠物渲染在独立 portal（挂 document.body），z-index 直接参与根层比较。
+   2147482999 = 页面内最顶层：高于一切面板/弹窗（设置弹窗 1000、侧边栏 50、
+   其他插件浮层），仅低于 dsh-better-sidebar 的错误提示条（2147483000）。 */
+.dsh-pet-root { position: fixed; z-index: 2147482999; pointer-events: auto; user-select: none; }
 .dsh-pet-canvas { position: relative; width: 96px; height: 104px; overflow: hidden; cursor: grab; }
 .dsh-pet-frame { position: absolute; left: 0; top: 0; image-rendering: pixelated; pointer-events: none; }
 .dsh-pet-bubble { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
@@ -450,6 +454,23 @@ function PetRoot(props) {
   return null
 }
 
+// ===== 独立容器 portal =====
+// 渲染在 shell.overlay 槽位里会被其容器（z-index 20）的层级“困住”，任何面板
+// （如 dsh-better-sidebar 的 50）都能盖住宠物。改挂到 document.body 的顶层
+// 节点，让 .dsh-pet-root 的 z-index 在根层参与比较（见 PET_CSS 注释）。
+function PetPortal(props) {
+  const [node] = React.useState(() => {
+    if (typeof document === 'undefined') return null
+    const el = document.createElement('div')
+    el.setAttribute('data-dsh-pet-portal', '')
+    document.body.appendChild(el)
+    return el
+  })
+  React.useEffect(() => () => { if (node !== null) node.remove() }, [node])
+  if (node === null) return null
+  return ReactDOM.createPortal(React.createElement(PetRoot, props), node)
+}
+
 // ===== 宠物预览卡片 =====
 
 function PetPreviewCard({ pet, selected, onSelect }) {
@@ -755,7 +776,7 @@ function apply(ctx) {
 
   ctx.slots.inject('shell.overlay', () => ctx.slots.register(
     { name: 'shell.overlay', id: 'dsh-pet', order: 0, label: '宠物' },
-    (props) => React.createElement(PetRoot, props),
+    (props) => React.createElement(PetPortal, props),
   ))
 
   ctx.slots.inject('settings.section', () => ctx.slots.register(
