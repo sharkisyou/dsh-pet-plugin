@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module'
-import { readFile, readdir, stat, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 const require = createRequire(import.meta.url)
@@ -264,12 +264,13 @@ export function apply(ctx) {
   const eventCounters = { status: 0, tools: 0, approvals: 0, subagents: 0, errors: 0 }
 
   let libraryRoot = null
+  let libraryDir = null
   let sourceDir = null
   let currentSession = null
   let initPromise = null
   const now = () => Date.now()
 
-  const petFile = (id) => joinPath(libraryRoot, `pet-${id}.json`)
+  const petDir = (id) => joinPath(libraryDir, id)
   const stateFile = () => joinPath(libraryRoot, 'pet-state.json')
 
   ctx.on('agent/status', (payload) => {
@@ -341,7 +342,10 @@ export function apply(ctx) {
         const found = await findHome(ctx)
         if (found.error !== undefined) throw new Error(`无法定位用户主目录 [${found.error}]`)
         libraryRoot = found.libraryRoot
+        libraryDir = joinPath(libraryRoot, 'pets')
         sourceDir = found.codexRoot
+        // 持久插件可以直接建目录：用户要求 Codex 包导入到 dsh/pets 下。
+        await mkdir(libraryDir, { recursive: true })
       })().catch((error) => {
         initPromise = null
         throw error
@@ -389,22 +393,21 @@ export function apply(ctx) {
   async function listPets() {
     try {
       await ensureInit()
-      const libraryDir = libraryRoot
-      if (!(await pathExists(libraryDir))) return { ok: true, pets: [] }
-      const entries = await readdir(libraryDir, { withFileTypes: true })
+      const entries = (await readdir(libraryDir, { withFileTypes: true }))
+        .filter((entry) => entry.isDirectory())
+        .sort((a, b) => a.name.localeCompare(b.name))
       const pets = []
       for (const entry of entries) {
-        if (!entry.isFile() || !entry.name.startsWith('pet-') || !entry.name.endsWith('.json') ||
-            entry.name === 'pet-state.json') continue
-        const id = entry.name.slice(4, -5)
+        const id = entry.name
         try {
-          const payload = await readJson(petFile(id))
-          const pet = payload !== null && typeof payload === 'object' ? payload.pet : null
-          if (pet === null || typeof pet !== 'object') continue
+          const files = (await readdir(petDir(id))).map((file) => file)
+          const assessed = assessPackageDir(files)
+          if (!assessed.valid) continue
+          const json = await readJson(joinPath(petDir(id), 'pet.json'))
           pets.push({
-            id: typeof pet.id === 'string' ? pet.id : id,
-            displayName: typeof pet.displayName === 'string' ? pet.displayName : id,
-            description: typeof pet.description === 'string' ? pet.description : '',
+            id,
+            displayName: typeof json.displayName === 'string' && json.displayName !== '' ? json.displayName : id,
+            description: typeof json.description === 'string' ? json.description : '',
           })
         } catch (error) {
           ctx.logger?.warn?.(`[pet] listPets 读取失败 ${entry.name}: ${errorText(error)}`)
@@ -448,7 +451,7 @@ export function apply(ctx) {
           displayName,
           valid: assessed.valid,
           reason: assessed.reason,
-          existsInLibrary: assessed.valid ? await pathExists(petFile(name)) : false,
+          existsInLibrary: assessed.valid ? await pathExists(petDir(name)) : false,
         })
       }
       return { ok: true, candidates }
@@ -465,7 +468,7 @@ export function apply(ctx) {
       const id = safeLibraryId(rawId)
       if (id === null) return { ok: false, error: '非法宠物 id' }
       if (sourceDir === null) return { ok: false, error: '无法定位 Codex 宠物目录' }
-      if (await pathExists(petFile(id)) && !overwrite) {
+      if (await pathExists(petDir(id)) && !overwrite) {
         return { ok: false, error: '同名宠物已存在，请先覆盖' }
       }
 
@@ -490,14 +493,14 @@ export function apply(ctx) {
       const atlasRows = dims.height / CELL_H
       const parsed = parsePetJson(JSON.stringify(json), atlasRows)
       if (!parsed.ok) return { ok: false, error: parsed.errors.join('; ') }
-      const payload = {
-        pet: parsed.pet,
-        spriteB64: bytes.toString('base64'),
-        mime: spriteMime(spriteName),
-        atlasRows,
+
+      // 导入 = 把 Codex 包目录复制到 dsh/pets/<id>（不再序列化为扁平 JSON）。
+      const destDir = petDir(id)
+      await rm(destDir, { recursive: true, force: true })
+      await cp(srcBase, destDir, { recursive: true, force: false, errorOnExist: true })
+      if (!(await pathExists(joinPath(destDir, 'pet.json')))) {
+        return { ok: false, error: '复制后校验失败：缺少 pet.json' }
       }
-      await writeJson(petFile(id), payload)
-      if (!(await pathExists(petFile(id)))) return { ok: false, error: '写入后校验失败' }
       spriteCache.delete(id)
       return { ok: true }
     } catch (error) {
@@ -513,16 +516,29 @@ export function apply(ctx) {
       if (id === null) return { ok: false, error: '非法宠物 id' }
       const cached = spriteCache.get(id)
       if (cached !== undefined) return cached
-      const payload = await readJson(petFile(id))
-      if (payload === null || typeof payload !== 'object' || payload.pet === undefined ||
-          typeof payload.spriteB64 !== 'string') {
-        return { ok: false, error: '宠物数据损坏' }
+      const pkgDir = petDir(id)
+      const jsonText = await readText(joinPath(pkgDir, 'pet.json'))
+      const json = JSON.parse(jsonText)
+      const rawSprite = typeof json.spritesheetPath === 'string' ? json.spritesheetPath : 'spritesheet.png'
+      const spriteName = safeSpriteName(rawSprite)
+      if (spriteName === null) return { ok: false, error: '宠物数据损坏：非法图集路径' }
+      const spritePath = joinPath(pkgDir, spriteName)
+      if (!(await pathExists(spritePath))) return { ok: false, error: `图集缺失: ${spriteName}` }
+      const bytes = await readFile(spritePath)
+      if (bytes.length > SPRITE_MAX) return { ok: false, error: '图集超过 25MB 上限' }
+      const dims = imageDims(bytes)
+      if (dims === null) return { ok: false, error: '图集不是支持的图片格式（PNG/WebP）' }
+      if (dims.width % CELL_W !== 0 || dims.height % CELL_H !== 0 || dims.width / CELL_W !== 8) {
+        return { ok: false, error: `图集尺寸不支持: ${dims.width}x${dims.height}` }
       }
+      const atlasRows = dims.height / CELL_H
+      const parsed = parsePetJson(jsonText, atlasRows)
+      if (!parsed.ok) return { ok: false, error: parsed.errors.join('; ') }
       const result = {
         ok: true,
-        pet: payload.pet,
-        spriteDataUrl: `data:${typeof payload.mime === 'string' ? payload.mime : 'image/png'};base64,${payload.spriteB64}`,
-        atlas: { rows: typeof payload.atlasRows === 'number' ? payload.atlasRows : 9 },
+        pet: parsed.pet,
+        spriteDataUrl: `data:${spriteMime(spriteName)};base64,${bytes.toString('base64')}`,
+        atlas: { rows: atlasRows },
       }
       spriteCache.set(id, result)
       return result

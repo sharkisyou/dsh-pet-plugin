@@ -30,9 +30,9 @@ Status: ready-for-agent
 
 ### 宠物库与导入
 
-- 库位置：`~/.dsh/pet-<id>.json` 扁平文件，每个宠物一个 JSON（标准化模型 + base64 图集内嵌）；UI 状态存 `~/.dsh/pet-state.json`。父目录 `~/.dsh/` 已存在，全程不依赖 shell（动态插件环境的 shell 服务不可靠，实测 run 会挂起）。
+- 库位置：`~/.dsh/pets/<id>/`，每个宠物一个从 Codex 包复制来的目录（pet.json + 图集）；若 `~/.dsh/pets/` 不存在则创建。UI 状态存 `~/.dsh/pet-state.json`。
 - 头部菜单含"从 Codex 导入"区块：列出 `~/.codex/pets/` 下有效包（忽略空目录与无效 pet.json），可全选/单选。
-- 导入 = 读源 pet.json + 图集 → 校验（图集 PNG/WebP、8 列网格）→ 序列化为单一 JSON 写回。
+- 导入 = 读源 pet.json + 图集 → 校验（图集 PNG/WebP、8 列网格）→ 把整个 Codex 包目录复制到 `~/.dsh/pets/<id>/`。
 - 首启不自动导入；库为空时宠物不显示，菜单引导导入。
 - 无默认宠物；用户导入并选择后显示。默认唤醒。
 

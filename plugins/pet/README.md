@@ -36,6 +36,14 @@ dsh web
 也可以不把本包作为 bundle，而手动在 profile 的 `cordis.patch.yml` 中插入同一行，
 并保证 `dsh-pet` 在 profile 的 Node 解析范围内。
 
+## 宠物库与导入
+
+- 导入源：`~/.codex/pets/`。
+- 导入目标：`$DSH_HOME/pets/<id>/`。
+- `importPet` 会校验源包（pet.json + PNG/WebP 图集 + 8 列网格），然后把整个
+  Codex 包目录复制到 `$DSH_HOME/pets/<id>/`；`pets` 目录不存在时自动创建。
+- 宠物选择/唤醒状态仍存 `$DSH_HOME/pet-state.json`。
+
 ## RPC 契约
 
 客户端 `POST /pet/rpc/<method>`（JSON 请求/响应，方法见 `lib/index.mjs`）：
@@ -45,6 +53,5 @@ dsh web
 
 ## 边界
 
-- 宠物库格式与 Codex 生态兼容，但 DSH 库是 `$DSH_HOME/pet-<id>.json` 扁平文件，
-  不反向兼容 Codex 目录格式。
+- DSH 宠物库直接保存 Codex 包目录，读取时即时标准化；不反向写入 Codex 目录。
 - 首版不做：养成互动、`/pet` 命令、设置页、菜单删除宠物。
