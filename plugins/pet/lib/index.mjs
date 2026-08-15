@@ -277,9 +277,7 @@ function rpcMethodOf(pathname) {
 // ===== 插件主体 =====
 
 export function apply(ctx) {
-  const sm = createPetStateMachine()
   const spriteCache = new Map()
-  const trackedSubagents = new Set()
   const eventCounters = { status: 0, tools: 0, approvals: 0, subagents: 0, subagentEvents: 0, errors: 0, lastSubagent: null }
 
   let libraryRoot = null
@@ -292,45 +290,67 @@ export function apply(ctx) {
   const petDir = (id) => joinPath(libraryDir, id)
   const stateFile = () => joinPath(libraryRoot, 'pet-state.json')
 
+  // 每个会话一个状态机。切页时不会把上一页未结束的工具/审批尾巴带到新页面。
+  const machines = new Map()
+  const trackedSubagents = new Map() // childSessionId -> 状态机键（父会话或 null）
+  const machineFor = (sessionKey) => {
+    let machine = machines.get(sessionKey)
+    if (machine === undefined) {
+      machine = createPetStateMachine()
+      machines.set(sessionKey, machine)
+    }
+    return machine
+  }
+  const activeMachineKey = () => currentSession === null ? null : currentSession
+  const relevantMachine = (agent) => {
+    const sid = agentIdOf(agent)
+    if (currentSession !== null && sid !== null && sid !== currentSession) return null
+    return machineFor(activeMachineKey())
+  }
+
   ctx.on('agent/status', (payload) => {
     if (payload === null || typeof payload !== 'object') return
-    if (!relevantToCurrent(payload.agent, currentSession)) return
+    const machine = relevantMachine(payload.agent)
+    if (machine === null) return
     eventCounters.status++
-    sm.apply({ kind: 'agent-status', status: payload.status === 'running' ? 'running' : 'idle', ts: now() })
+    machine.apply({ kind: 'agent-status', status: payload.status === 'running' ? 'running' : 'idle', ts: now() })
   })
 
   ctx.on('agent/error', (payload) => {
     if (payload === null || typeof payload !== 'object') return
-    if (!relevantToCurrent(payload.agent, currentSession)) return
+    const machine = relevantMachine(payload.agent)
+    if (machine === null) return
     eventCounters.errors++
-    sm.apply({ kind: 'error', ts: now() })
+    machine.apply({ kind: 'error', ts: now() })
   })
 
   ctx.on('tools/execute', (exec, next) => {
     const agent = exec !== null && typeof exec === 'object' ? exec.agent : undefined
-    if (!relevantToCurrent(agent, currentSession)) return next()
+    const machine = relevantMachine(agent)
+    if (machine === null) return next()
     eventCounters.tools++
     const name = toolNameOf(exec)
-    sm.apply({ kind: 'tool-start', name, isQuestion: name === 'ask_user_question', ts: now() })
+    machine.apply({ kind: 'tool-start', name, isQuestion: name === 'ask_user_question', ts: now() })
     return (async () => {
       try {
         return await next()
       } finally {
-        sm.apply({ kind: 'tool-end', ts: now() })
+        machine.apply({ kind: 'tool-end', ts: now() })
       }
     })()
   })
 
   ctx.on('approval/request', (req, next) => {
     const agent = req !== null && typeof req === 'object' ? req.agent : undefined
-    if (!relevantToCurrent(agent, currentSession)) return next()
+    const machine = relevantMachine(agent)
+    if (machine === null) return next()
     eventCounters.approvals++
-    sm.apply({ kind: 'approval-start', ts: now() })
+    machine.apply({ kind: 'approval-start', ts: now() })
     return (async () => {
       try {
         return await next()
       } finally {
-        sm.apply({ kind: 'approval-end', ts: now() })
+        machine.apply({ kind: 'approval-end', ts: now() })
       }
     })()
   })
@@ -340,21 +360,21 @@ export function apply(ctx) {
     eventCounters.subagentEvents++
     if (child === null) return
     eventCounters.lastSubagent = { child, currentSession, parentId: parentIdOfChildSession(ctx, child) }
-    const countChild = () => {
+    const countChild = (machineKey) => {
       if (trackedSubagents.has(child)) return
-      trackedSubagents.add(child)
+      trackedSubagents.set(child, machineKey)
       eventCounters.subagents++
-      sm.apply({ kind: 'subagent-start', ts: now() })
+      machineFor(machineKey).apply({ kind: 'subagent-start', ts: now() })
     }
     // subagent/start 通过作用域 carrier 携带父会话，回调参数里没有 parent；
     // 这里从刚发布的子会话 header.parentSession 反推父会话进行过滤。
     if (currentSession === null) {
-      countChild()
+      countChild(null)
       return
     }
     const parentId = parentIdOfChildSession(ctx, child)
     if (parentId !== null && parentId === currentSession) {
-      countChild()
+      countChild(currentSession)
       return
     }
     // 子会话可能晚一拍才可见：做几次短延迟重试，仍不可识别则跳过。
@@ -364,7 +384,7 @@ export function apply(ctx) {
         const lateParentId = parentIdOfChildSession(ctx, child)
         eventCounters.lastSubagent = { child, currentSession, parentId: lateParentId, retryDelay: delay }
         if (lateParentId === null || lateParentId !== currentSession) return
-        countChild()
+        countChild(currentSession)
       }, delay)
     }
   }, { global: true })
@@ -372,8 +392,9 @@ export function apply(ctx) {
   ctx.on('subagent/end', (info) => {
     const child = childIdOf(info)
     if (child === null || !trackedSubagents.has(child)) return
+    const machineKey = trackedSubagents.get(child)
     trackedSubagents.delete(child)
-    sm.apply({ kind: 'subagent-end', ts: now() })
+    machineFor(machineKey).apply({ kind: 'subagent-end', ts: now() })
   }, { global: true })
 
   async function ensureInit() {
@@ -398,7 +419,10 @@ export function apply(ctx) {
   // ===== RPC handlers =====
 
   async function getStatus() {
-    const { state, bubble } = sm.apply({ kind: 'tick', ts: now() })
+    const machine = machines.get(activeMachineKey())
+    const { state, bubble } = machine === undefined
+      ? { state: 'idle', bubble: '空闲' }
+      : machine.apply({ kind: 'tick', ts: now() })
     return { ok: true, state, bubble, seen: { ...eventCounters }, currentSession }
   }
 
@@ -415,7 +439,7 @@ export function apply(ctx) {
     // 注入一次 error 事件，用于验证「出错」气泡与 failed 动画路径。
     // 不要求 currentSession：即使页面尚未重新上报会话，也能验证 UI 链路。
     eventCounters.errors++
-    sm.apply({ kind: 'error', ts: now() })
+    machineFor(activeMachineKey()).apply({ kind: 'error', ts: now() })
     return { ok: true, currentSession }
   }
 
