@@ -101,7 +101,6 @@ dsh web
 | `listImportCandidates` | Codex 目录下的导入候选 |
 | `importPet` | 校验并复制一个包目录 |
 | `getPet` | 标准化模型 + 图集 data URL |
-| `debugError` | 测试专用：模拟一次 `agent/error` |
 
 ## 边界
 

@@ -31,7 +31,7 @@ Status: ready-for-agent
 ### 宠物库与导入
 
 - 库位置：`~/.dsh/pets/<id>/`，每个宠物一个从 Codex 包复制来的目录（pet.json + 图集）；若 `~/.dsh/pets/` 不存在则创建。UI 状态存 `~/.dsh/pet-state.json`。
-- 头部菜单含"从 Codex 导入"区块：列出 `~/.codex/pets/` 下有效包（忽略空目录与无效 pet.json），可全选/单选。
+- 设置页的宠物面板含"从 Codex 导入"区块：列出 `~/.codex/pets/` 下有效包（忽略空目录与无效 pet.json），可全选/单选。
 - 导入 = 读源 pet.json + 图集 → 校验（图集 PNG/WebP、8 列网格）→ 把整个 Codex 包目录复制到 `~/.dsh/pets/<id>/`。
 - 首启不自动导入；库为空时宠物不显示，菜单引导导入。
 - 无默认宠物；用户导入并选择后显示。默认唤醒。
@@ -59,7 +59,7 @@ Status: ready-for-agent
 
 ### 控制与记忆
 
-- 控制入口：`conversation.session.header.actions` 按钮 + `shell.overlay` 右下角常驻 🐾 悬浮入口（空库、隐藏、无会话时也可打开菜单），菜单含唤醒/隐藏、宠物列表（按 displayName）、导入区块。
+- 控制入口：设置页 `settings.section` 的宠物面板（空库、隐藏、无会话时也可打开），含唤醒/隐藏、宠物列表（按 displayName）、导入区块；右下角与头部不设常驻入口。
 - 宠物本体：默认右下角，可拖拽；本体上有隐藏按钮。
 - 记忆（位置 / 所选宠物 / 唤醒状态）：存宿主 `~/.dsh/pet-state.json`（刷新后恢复；多标签页最后写入者生效）。
 - 显示尺寸约 96×104（单格 192×208 的 0.5 倍，可调）。
@@ -88,8 +88,8 @@ Status: ready-for-agent
 
 ### 客户端半
 
-- `shell.overlay`：宠物本体 + 状态浮层（常显一行文本）。
-- `conversation.session.header.actions`：控制按钮 + 菜单。
+- `shell.overlay`：宠物本体 + 状态浮层（常显一行文本）；隐藏或未选择时渲染空，不提供悬浮按钮。
+- `settings.section`：宠物控制面板（唤醒/隐藏、选择、导入、诊断）。
 - 客户端 `timer` 服务约 500ms 轮询 `getStatus`。
 - 动画引擎按 `timingMs`/`playback`/`loop`/`interactions.click` 逐帧播放；拖拽用 React 事件实现；样式经 `styles.insert`。
 
@@ -98,7 +98,7 @@ Status: ready-for-agent
 - v2 包固定行序：官方 v2 图集为 1536×2288（11 行）、v1 为 1536×1872（9 行）；按图集实际尺寸推断行数，前 9 行标准行名 + 每行官方已用帧数（6,8,8,4,5,8,6,6,6）。
 - `subagent/start|end` 按父作用域分发；payload 字段以运行时防御性读取（parentSessionId/parentId/owner/parent.id），不可识别时跳过不计数。
 - `webServer` 动态路由契约未公开 → 采用 base64 RPC（已按此实现）。
-- 客户端当前会话：`conversation.session.header.actions` Slot 的 `sessionId` prop。
+- 客户端当前会话：`shell.overlay` Slot 的 `useSessions` 提取当前会话。
 
 ## 沉淀路线（原型验证后）
 

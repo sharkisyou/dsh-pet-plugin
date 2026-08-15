@@ -32,19 +32,8 @@ const PET_CSS = `
   border: none; background: rgba(40,40,40,.9); color: #fff; font-size: 11px; line-height: 1;
   cursor: pointer; display: none; }
 .dsh-pet-root:hover .dsh-pet-hide { display: block; }
-.dsh-pet-menu-wrap { position: relative; display: inline-block; pointer-events: auto; }
-.dsh-pet-menu-wrap-overlay { position: fixed; right: 16px; bottom: 16px; z-index: 9500; display: block; pointer-events: auto; }
-.dsh-pet-wake { position: relative; width: 34px; height: 34px;
-  border-radius: 50%; background: rgba(30,30,30,.75); color: #fff; font-size: 16px; cursor: pointer;
-  border: 1px solid rgba(255,255,255,.25); }
-.dsh-pet-menu-backdrop { position: fixed; inset: 0; z-index: 9580; background: transparent; pointer-events: auto; }
-.dsh-pet-menu { position: absolute; top: calc(100% + 6px); right: 0; width: 260px; max-height: 60vh;
-  overflow: auto; background: rgba(32,32,32,.97); border: 1px solid rgba(255,255,255,.15);
-  border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.35); padding: 8px; z-index: 9600; color: #eee; pointer-events: auto; }
-.dsh-pet-menu-overlay { top: auto; bottom: calc(100% + 6px); }
-.dsh-pet-menu-settings { position: static; width: 100%; max-height: none; overflow: visible; background: transparent;
+ .dsh-pet-menu { position: static; width: 100%; max-height: none; overflow: visible; background: transparent;
   border: none; box-shadow: none; padding: 0; color: inherit; pointer-events: auto; }
-.dsh-pet-menu:focus { outline: none; }
 .dsh-pet-menu h4 { margin: 6px 2px; font-size: 12px; color: #aaa; font-weight: 600; }
 .dsh-pet-item { display: flex; justify-content: space-between; align-items: center; gap: 6px;
   padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 13px; }
@@ -410,29 +399,13 @@ function PetRoot(props) {
   return null
 }
 
-// ===== 宠物菜单（会话头部与悬浮双入口共用）=====
+// ===== 宠物设置面板 =====
 
-function PetMenu(props) {
+function PetMenu() {
   const s = useStore()
-  const requested = props !== null && typeof props === 'object' ? props.variant : undefined
-  const variant = requested === 'settings' ? 'settings'
-    : requested === 'overlay' ? 'overlay'
-    : 'header'
-  const [open, setOpen] = React.useState(variant === 'settings')
   const [importMsg, setImportMsg] = React.useState(null)
-  const menuRef = React.useRef(null)
 
   React.useEffect(() => {
-    if (!open || variant === 'settings') return
-    if (typeof document !== 'undefined' && document.activeElement !== null &&
-        typeof document.activeElement.blur === 'function') {
-      document.activeElement.blur()
-    }
-    if (menuRef.current !== null) menuRef.current.focus({ preventScroll: true })
-  }, [open, variant])
-
-  React.useEffect(() => {
-    if (variant !== 'settings') return
     refreshCandidates()
     refreshPets()
     setImportMsg(null)
@@ -442,23 +415,7 @@ function PetMenu(props) {
         notify()
       }
     }).catch(() => {})
-  }, [variant])
-
-  function toggle() {
-    const next = !open
-    setOpen(next)
-    if (next) {
-      refreshCandidates()
-      refreshPets()
-      setImportMsg(null)
-      petCall('getStatus', {}).then((res) => {
-        if (res !== null && typeof res === 'object') {
-          store.diag = { seen: res.seen, currentSession: res.currentSession }
-          notify()
-        }
-      }).catch(() => {})
-    }
-  }
+  }, [])
 
   async function onImport(id, overwrite) {
     setImportMsg('导入中…')
@@ -481,95 +438,62 @@ function PetMenu(props) {
     setImportMsg(failed === 0 ? `已导入 ${pending.length} 只宠物` : `导入完成，${failed} 只失败`)
   }
 
-  const menuClass = variant === 'overlay' ? 'dsh-pet-menu dsh-pet-menu-overlay'
-    : variant === 'settings' ? 'dsh-pet-menu dsh-pet-menu-settings'
-    : 'dsh-pet-menu'
-
-  const panel = React.createElement(
+  return React.createElement(
+    'div',
+    { className: 'dsh-pet-menu' },
+    React.createElement('h4', null, '宠物'),
+    React.createElement(
+      'div',
+      { className: 'dsh-pet-item' },
+      React.createElement('span', null, s.wake ? '已唤醒' : '已隐藏'),
+      React.createElement('button', { className: 'dsh-pet-btn', onClick: () => setWake(!s.wake) }, s.wake ? '隐藏' : '唤醒'),
+    ),
+    React.createElement('h4', null, '选择宠物'),
+    s.pets.length === 0
+      ? React.createElement('div', { className: 'dsh-pet-muted' },
+          s.petsError !== null ? s.petsError
+            : (s.initError !== null ? s.initError : '宠物库为空，请先从下方导入'))
+      : s.pets.map((pet) => React.createElement(
           'div',
           {
-            className: menuClass,
-            onClick: (e) => e.stopPropagation(),
-            ref: menuRef,
-            ...variant === 'settings' ? {} : { tabIndex: -1 },
+            key: pet.id,
+            className: 'dsh-pet-item' + (pet.id === s.petId ? ' selected' : ''),
+            onClick: () => { selectPet(pet.id) },
           },
-          React.createElement('h4', null, '宠物'),
+          React.createElement('span', null, pet.displayName + (pet.id === s.petId ? ' ✓' : '')),
+        )),
+    React.createElement('h4', null, '从 Codex 导入'),
+    s.importCandidates.length === 0
+      ? React.createElement('div', { className: 'dsh-pet-muted' },
+          s.importError !== null ? s.importError : '未发现可导入的宠物包')
+      : React.createElement(
+          'div',
+          null,
           React.createElement(
             'div',
             { className: 'dsh-pet-item' },
-            React.createElement('span', null, s.wake ? '已唤醒' : '已隐藏'),
-            React.createElement('button', { className: 'dsh-pet-btn', onClick: () => setWake(!s.wake) }, s.wake ? '隐藏' : '唤醒'),
+            React.createElement('span', null, `共 ${s.importCandidates.filter((c) => c.valid).length} 只可导入`),
+            React.createElement('button', { className: 'dsh-pet-btn', onClick: onImportAll }, '全部导入'),
           ),
-          React.createElement('h4', null, '选择宠物'),
-          s.pets.length === 0
-            ? React.createElement('div', { className: 'dsh-pet-muted' },
-                s.petsError !== null ? s.petsError
-                  : (s.initError !== null ? s.initError : '宠物库为空，请先从下方导入'))
-            : s.pets.map((pet) => React.createElement(
-                'div',
-                {
-                  key: pet.id,
-                  className: 'dsh-pet-item' + (pet.id === s.petId ? ' selected' : ''),
-                  onClick: () => { selectPet(pet.id); if (variant !== 'settings') setOpen(false) },
-                },
-                React.createElement('span', null, pet.displayName + (pet.id === s.petId ? ' ✓' : '')),
-              )),
-          React.createElement('h4', null, '从 Codex 导入'),
-          s.importCandidates.length === 0
-            ? React.createElement('div', { className: 'dsh-pet-muted' },
-                s.importError !== null ? s.importError : '未发现可导入的宠物包')
-            : React.createElement(
-                'div',
-                null,
-                React.createElement(
-                  'div',
-                  { className: 'dsh-pet-item' },
-                  React.createElement('span', null, `共 ${s.importCandidates.filter((c) => c.valid).length} 只可导入`),
-                  React.createElement('button', { className: 'dsh-pet-btn', onClick: onImportAll }, '全部导入'),
-                ),
-                s.importCandidates.filter((c) => c.valid).map((c) => React.createElement(
-                  'div',
-                  { key: c.id, className: 'dsh-pet-item' },
-                  React.createElement('span', null, c.displayName),
-                  c.existsInLibrary
-                    ? React.createElement('button', { className: 'dsh-pet-btn', onClick: () => onImport(c.id, true) }, '覆盖')
-                    : React.createElement('button', { className: 'dsh-pet-btn', onClick: () => onImport(c.id, false) }, '导入'),
-                )),
-              ),
-          importMsg !== null
-            ? React.createElement('div', { className: 'dsh-pet-muted' }, importMsg)
-            : null,
-          s.diag !== null && s.diag.seen !== undefined
-            ? React.createElement(
-                'div',
-                { className: 'dsh-pet-muted' },
-                `事件 status=${s.diag.seen.status} tools=${s.diag.seen.tools} approvals=${s.diag.seen.approvals} subagents=${s.diag.seen.subagents} errors=${s.diag.seen.errors} 会话=${s.diag.currentSession === null ? '未知(跟随一切)' : s.diag.currentSession}`,
-              )
-            : null,
-        )
-
-  const menu = open
-    ? (variant === 'settings'
-      ? panel
-      : React.createElement(
+          s.importCandidates.filter((c) => c.valid).map((c) => React.createElement(
+            'div',
+            { key: c.id, className: 'dsh-pet-item' },
+            React.createElement('span', null, c.displayName),
+            c.existsInLibrary
+              ? React.createElement('button', { className: 'dsh-pet-btn', onClick: () => onImport(c.id, true) }, '覆盖')
+              : React.createElement('button', { className: 'dsh-pet-btn', onClick: () => onImport(c.id, false) }, '导入'),
+          )),
+        ),
+    importMsg !== null
+      ? React.createElement('div', { className: 'dsh-pet-muted' }, importMsg)
+      : null,
+    s.diag !== null && s.diag.seen !== undefined
+      ? React.createElement(
           'div',
-          { className: 'dsh-pet-menu-wrap' },
-          React.createElement('div', { className: 'dsh-pet-menu-backdrop', onClick: () => setOpen(false) }),
-          panel,
-        ))
-    : null
-
-  if (variant === 'settings') return menu
-
-  return React.createElement(
-    'div',
-    { className: variant === 'overlay' ? 'dsh-pet-menu-wrap dsh-pet-menu-wrap-overlay' : 'dsh-pet-menu-wrap' },
-    React.createElement('button', {
-      className: variant === 'overlay' ? 'dsh-pet-wake' : 'dsh-pet-btn',
-      onClick: toggle,
-      title: '宠物',
-    }, variant === 'overlay' ? '🐾' : '🐾 宠物'),
-    menu,
+          { className: 'dsh-pet-muted' },
+          `事件 status=${s.diag.seen.status} tools=${s.diag.seen.tools} approvals=${s.diag.seen.approvals} subagents=${s.diag.seen.subagents} errors=${s.diag.seen.errors} 会话=${s.diag.currentSession === null ? '未知(跟随一切)' : s.diag.currentSession}`,
+        )
+      : null,
   )
 }
 
@@ -594,7 +518,7 @@ function apply(ctx) {
 
   ctx.slots.inject('settings.section', () => ctx.slots.register(
     { name: 'settings.section', id: 'pet', order: 20, label: '宠物' },
-    (props) => React.createElement(PetMenu, { variant: 'settings', ...props }),
+    (props) => React.createElement(PetMenu, props),
   ))
 }
 
