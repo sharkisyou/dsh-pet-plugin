@@ -84,6 +84,7 @@ const PET_CSS = `
   overflow: auto; background: rgba(32,32,32,.97); border: 1px solid rgba(255,255,255,.15);
   border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.35); padding: 8px; z-index: 9600; color: #eee; pointer-events: auto; }
 .dsh-pet-menu-overlay { top: auto; bottom: calc(100% + 6px); }
+.dsh-pet-menu:focus { outline: none; }
 .dsh-pet-menu h4 { margin: 6px 2px; font-size: 12px; color: #aaa; font-weight: 600; }
 .dsh-pet-item { display: flex; justify-content: space-between; align-items: center; gap: 6px;
   padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 13px; }
@@ -455,9 +456,14 @@ function PetMenu(props) {
   const s = useStore()
   const [open, setOpen] = React.useState(false)
   const [importMsg, setImportMsg] = React.useState(null)
+  const menuRef = React.useRef(null)
   const variant = props !== null && typeof props === 'object' && props.variant === 'overlay'
     ? 'overlay'
     : 'header'
+
+  React.useEffect(() => {
+    if (open && menuRef.current !== null) menuRef.current.focus({ preventScroll: true })
+  }, [open])
 
   function toggle() {
     const next = !open
@@ -506,6 +512,8 @@ function PetMenu(props) {
           {
             className: variant === 'overlay' ? 'dsh-pet-menu dsh-pet-menu-overlay' : 'dsh-pet-menu',
             onClick: (e) => e.stopPropagation(),
+            ref: menuRef,
+            tabIndex: -1,
           },
           React.createElement('h4', null, '宠物'),
           React.createElement(
