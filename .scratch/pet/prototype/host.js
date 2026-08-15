@@ -170,9 +170,14 @@ function createPetStateMachine() {
     if (tool !== null && tool.isQuestion) {
       return { state: STATE.waiting, bubble: '等待回答' }
     }
-    if (agentRunning || (tool !== null && !tool.isQuestion) || subagents > 0) {
+    // 子代理优先于父会话的工具执行：前台子代理期间父会话自身就在
+    // 执行 `subagent` 工具，若按工具优先则整个子代理周期都会显示
+    // 「执行工具 subagent」而不是「子代理工作中」。
+    if (subagents > 0) {
+      return { state: STATE.working, bubble: '子代理工作中' }
+    }
+    if (agentRunning || (tool !== null && !tool.isQuestion)) {
       if (tool !== null && !tool.isQuestion) return { state: STATE.working, bubble: `执行工具 ${tool.name}` }
-      if (subagents > 0) return { state: STATE.working, bubble: '子代理工作中' }
       return { state: STATE.working, bubble: '思考中' }
     }
     if (idleSince !== null && ts - idleSince < REPLY_BUBBLE_MS) {

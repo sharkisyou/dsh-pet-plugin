@@ -88,3 +88,20 @@ test('子代理工作算"工作"，浮层显示"子代理工作中"', () => {
     state: 'idle', bubble: '等待回复',
   })
 })
+
+test('子代理进行中优先于父会话工具执行（前台子代理场景）', () => {
+  const sm = make()
+  sm.apply({ kind: 'agent-status', status: 'running', ts: 100 })
+  // 前台子代理期间，父会话自身正在执行 subagent 工具。
+  sm.apply({ kind: 'tool-start', name: 'subagent', isQuestion: false, ts: 200 })
+  assert.deepEqual(sm.apply({ kind: 'subagent-start', ts: 300 }), {
+    state: 'working', bubble: '子代理工作中',
+  })
+  // 子代理结束后回到父会话工具气泡，工具结束后回到思考中。
+  assert.deepEqual(sm.apply({ kind: 'subagent-end', ts: 400 }), {
+    state: 'working', bubble: '执行工具 subagent',
+  })
+  assert.deepEqual(sm.apply({ kind: 'tool-end', ts: 500 }), {
+    state: 'working', bubble: '思考中',
+  })
+})
