@@ -462,7 +462,12 @@ function PetMenu(props) {
     : 'header'
 
   React.useEffect(() => {
-    if (open && menuRef.current !== null) menuRef.current.focus({ preventScroll: true })
+    if (!open) return
+    if (typeof document !== 'undefined' && document.activeElement !== null &&
+        typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur()
+    }
+    if (menuRef.current !== null) menuRef.current.focus({ preventScroll: true })
   }, [open])
 
   function toggle() {
