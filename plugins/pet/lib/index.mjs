@@ -410,6 +410,15 @@ export function apply(ctx) {
     return { ok: true }
   }
 
+  async function debugError() {
+    // 测试专用：真实 agent/error 很难从工具侧安全制造；此方法直接给状态机
+    // 注入一次 error 事件，用于验证「出错」气泡与 failed 动画路径。
+    // 不要求 currentSession：即使页面尚未重新上报会话，也能验证 UI 链路。
+    eventCounters.errors++
+    sm.apply({ kind: 'error', ts: now() })
+    return { ok: true, currentSession }
+  }
+
   async function loadState() {
     try {
       await ensureInit()
@@ -591,6 +600,7 @@ export function apply(ctx) {
   const handlers = {
     'getStatus': getStatus,
     'setCurrentSession': setCurrentSession,
+    'debugError': debugError,
     'loadState': loadState,
     'saveState': saveState,
     'listPets': listPets,
