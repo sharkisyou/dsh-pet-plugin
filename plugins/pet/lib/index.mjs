@@ -280,7 +280,7 @@ export function apply(ctx) {
   const sm = createPetStateMachine()
   const spriteCache = new Map()
   const trackedSubagents = new Set()
-  const eventCounters = { status: 0, tools: 0, approvals: 0, subagents: 0, errors: 0 }
+  const eventCounters = { status: 0, tools: 0, approvals: 0, subagents: 0, subagentEvents: 0, errors: 0, lastSubagent: null }
 
   let libraryRoot = null
   let libraryDir = null
@@ -337,7 +337,9 @@ export function apply(ctx) {
 
   ctx.on('subagent/start', (info) => {
     const child = childIdOf(info)
+    eventCounters.subagentEvents++
     if (child === null) return
+    eventCounters.lastSubagent = { child, currentSession, parentId: parentIdOfChildSession(ctx, child) }
     const countChild = () => {
       if (trackedSubagents.has(child)) return
       trackedSubagents.add(child)
@@ -355,21 +357,24 @@ export function apply(ctx) {
       countChild()
       return
     }
-    // 子会话可能晚一拍才可见：下一微任务重试一次，仍不可识别则跳过。
-    Promise.resolve().then(() => {
-      if (trackedSubagents.has(child)) return
-      const lateParentId = parentIdOfChildSession(ctx, child)
-      if (lateParentId === null || lateParentId !== currentSession) return
-      countChild()
-    })
-  })
+    // 子会话可能晚一拍才可见：做几次短延迟重试，仍不可识别则跳过。
+    for (const delay of [0, 10, 50, 200]) {
+      setTimeout(() => {
+        if (trackedSubagents.has(child)) return
+        const lateParentId = parentIdOfChildSession(ctx, child)
+        eventCounters.lastSubagent = { child, currentSession, parentId: lateParentId, retryDelay: delay }
+        if (lateParentId === null || lateParentId !== currentSession) return
+        countChild()
+      }, delay)
+    }
+  }, { global: true })
 
   ctx.on('subagent/end', (info) => {
     const child = childIdOf(info)
     if (child === null || !trackedSubagents.has(child)) return
     trackedSubagents.delete(child)
     sm.apply({ kind: 'subagent-end', ts: now() })
-  })
+  }, { global: true })
 
   async function ensureInit() {
     if (libraryRoot !== null) return
