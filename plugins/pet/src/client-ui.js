@@ -67,6 +67,7 @@ const store = {
   wake: true,
   greeting: false,
   clickAnim: null,
+  lastClickAnim: null,
   pos: { x: null, y: null },
   importCandidates: [],
   initError: null,
@@ -119,6 +120,7 @@ async function selectPet(id) {
       : 9
     store.greeting = false
     store.clickAnim = null
+    store.lastClickAnim = null
     notify()
     await persist()
   } catch (err) {
@@ -351,9 +353,9 @@ function PetView() {
       return
     }
     if (pet.clickAnimations.length > 0) {
-      const prev = s.clickAnim !== null ? s.clickAnim.name : null
-      const next = cycleNext(prev, pet.clickAnimations)
+      const next = cycleNext(s.lastClickAnim, pet.clickAnimations)
       if (next !== null) {
+        store.lastClickAnim = next
         store.clickAnim = { name: next }
         notify()
       }
