@@ -95,6 +95,25 @@ function childIdOf(info) {
   return null
 }
 
+function parentIdOfChildSession(ctx, childId) {
+  const sessions = ctx.get('sessions')
+  if (sessions !== undefined && typeof sessions.get === 'function') {
+    const session = sessions.get(childId)
+    const parent = session !== null && typeof session === 'object' && session.header !== null &&
+      typeof session.header === 'object' ? session.header.parentSession : undefined
+    if (typeof parent === 'string') return parent
+  }
+  const agents = ctx.get('agents')
+  if (agents !== undefined && typeof agents.get === 'function') {
+    const agent = agents.get(childId)
+    const session = agent !== null && typeof agent === 'object' ? agent.session : undefined
+    const parent = session !== null && typeof session === 'object' && session.header !== null &&
+      typeof session.header === 'object' ? session.header.parentSession : undefined
+    if (typeof parent === 'string') return parent
+  }
+  return null
+}
+
 function toolNameOf(exec) {
   if (exec === null || typeof exec !== 'object') return '工具'
   if (typeof exec.name === 'string' && exec.name !== '') return exec.name
@@ -316,16 +335,33 @@ export function apply(ctx) {
     })()
   })
 
-  ctx.on('subagent/start', (info, parent) => {
-    const parentId = agentIdOf(parent)
-    // 父会话可识别时严格过滤；未知当前会话则跟随一切活动；父字段不可识别则跳过。
-    if (currentSession !== null && parentId !== null && parentId !== currentSession) return
-    if (currentSession !== null && parentId === null) return
+  ctx.on('subagent/start', (info) => {
     const child = childIdOf(info)
     if (child === null) return
-    trackedSubagents.add(child)
-    eventCounters.subagents++
-    sm.apply({ kind: 'subagent-start', ts: now() })
+    const countChild = () => {
+      if (trackedSubagents.has(child)) return
+      trackedSubagents.add(child)
+      eventCounters.subagents++
+      sm.apply({ kind: 'subagent-start', ts: now() })
+    }
+    // subagent/start 通过作用域 carrier 携带父会话，回调参数里没有 parent；
+    // 这里从刚发布的子会话 header.parentSession 反推父会话进行过滤。
+    if (currentSession === null) {
+      countChild()
+      return
+    }
+    const parentId = parentIdOfChildSession(ctx, child)
+    if (parentId !== null && parentId === currentSession) {
+      countChild()
+      return
+    }
+    // 子会话可能晚一拍才可见：下一微任务重试一次，仍不可识别则跳过。
+    Promise.resolve().then(() => {
+      if (trackedSubagents.has(child)) return
+      const lateParentId = parentIdOfChildSession(ctx, child)
+      if (lateParentId === null || lateParentId !== currentSession) return
+      countChild()
+    })
   })
 
   ctx.on('subagent/end', (info) => {
