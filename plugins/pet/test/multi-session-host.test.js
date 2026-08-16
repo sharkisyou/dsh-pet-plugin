@@ -161,6 +161,18 @@ test('Blocked 打开后标记 acknowledged，新活动清除 acknowledged', asyn
   }
 })
 
+test('未同步会话/未设置当前会话时，带 id 的事件仍被跟踪，避免一直空闲', async () => {
+  const h = await createHarness()
+  try {
+    await h.emit('agent/status', { agent: { id: 's1' }, status: 'running' })
+    const res = await h.rpc('getStatus')
+    assert.equal(res.body.state, 'working')
+    assert.ok(res.body.activities.some((a) => a.sessionId === 's1' && a.state === 'working'))
+  } finally {
+    await h.cleanup()
+  }
+})
+
 test('未知会话与缺失 sessionId 的事件被忽略', async () => {
   const h = await createHarness()
   try {
