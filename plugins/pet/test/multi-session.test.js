@@ -45,6 +45,19 @@ test('mergeSession：客户端 pendingInteraction 覆盖为等待输入', () => 
   assert.equal(merged.active, true)
 })
 
+test('mergeSession：客户端 running 在没有宿主活动时也生成为运行中', () => {
+  const merged = mergeSession({
+    sessionId: 's1',
+    hostActivity: null,
+    summary: { running: true, updatedAt: 15 },
+    currentSession: 'other',
+  })
+  assert.equal(merged.state, 'working')
+  assert.equal(merged.bubble, '思考中')
+  assert.equal(merged.active, true)
+  assert.equal(merged.lastEventAt, 15)
+})
+
 test('mergeSession：客户端 completed 生成为就绪', () => {
   const merged = mergeSession({
     sessionId: 's1',

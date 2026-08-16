@@ -95,6 +95,10 @@ function mergeSession({ sessionId, hostActivity, summary, currentSession }) {
       state = 'ready'
       bubble = '待查看'
     }
+    if (summary.running === true && state !== 'waiting' && state !== 'failed') {
+      state = 'working'
+      bubble = host && host.bubble ? host.bubble : '思考中'
+    }
     if (typeof summary.updatedAt === 'number') {
       lastEventAt = Math.max(lastEventAt, summary.updatedAt)
     }
