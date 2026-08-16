@@ -296,6 +296,16 @@ const PET_CSS = `
 .dsh-pet-card-frame { position: absolute; left: 0; top: 0; image-rendering: pixelated; pointer-events: none; }
 .dsh-pet-card-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-primary, #eee); }
+.dsh-pet-scale { display: flex; align-items: center; gap: 6px; }
+.dsh-pet-scale-btn { min-width: 28px; height: 28px; padding: 0 8px; border-radius: 8px;
+  background: var(--dsw-alias-bg-module-platform, rgba(255,255,255,.1));
+  color: var(--dsw-alias-label-primary, #eee);
+  border: 1px solid var(--dsw-alias-border-l2, rgba(255,255,255,.1));
+  font-size: 14px; line-height: 1; cursor: pointer; }
+.dsh-pet-scale-btn:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover, rgba(255,255,255,.16)); }
+.dsh-pet-scale-btn:disabled { opacity: .4; cursor: default; }
+.dsh-pet-scale-value { min-width: 44px; text-align: center; font-size: 12px;
+  color: var(--dsw-alias-label-secondary, #ccc); }
 .dsh-pet-tray { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%);
   width: 280px; max-height: 240px; display: flex; flex-direction: column;
   background: rgba(24,24,24,.96); border: 1px solid var(--dsw-alias-border-l2, rgba(255,255,255,.12));
@@ -1067,15 +1077,28 @@ function PetMenu(props) {
       'div',
       { className: 'dsh-pet-item' },
       React.createElement('span', null, '缩放'),
-      React.createElement('input', {
-        type: 'range',
-        min: 50,
-        max: 200,
-        value: Math.round(s.scale * 100),
-        onChange: (e) => setScale(Number(e.target.value) / 100),
-        style: { flex: 1, minWidth: 0 },
-      }),
-      React.createElement('span', { className: 'dsh-pet-muted' }, `${Math.round(s.scale * 100)}%`),
+      React.createElement(
+        'div',
+        { className: 'dsh-pet-scale' },
+        React.createElement('button', {
+          className: 'dsh-pet-scale-btn',
+          onClick: () => setScale(s.scale - 0.1),
+          disabled: s.scale <= 0.5,
+          title: '缩小',
+        }, '−'),
+        React.createElement('span', { className: 'dsh-pet-scale-value' }, `${Math.round(s.scale * 100)}%`),
+        React.createElement('button', {
+          className: 'dsh-pet-scale-btn',
+          onClick: () => setScale(s.scale + 0.1),
+          disabled: s.scale >= 2,
+          title: '放大',
+        }, '+'),
+        React.createElement('button', {
+          className: 'dsh-pet-scale-btn',
+          onClick: () => setScale(1),
+          title: '重置为 100%',
+        }, '重置'),
+      ),
     ),
     React.createElement(
       'div',
