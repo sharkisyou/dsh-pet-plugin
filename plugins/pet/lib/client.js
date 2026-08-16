@@ -324,6 +324,8 @@ const store = {
   inited: false,
   currentSession: null,
   state: { state: 'idle', bubble: '空闲' },
+  hostState: 'idle',
+  hostBubble: '空闲',
   activities: [],
   trayItems: [],
   activeSessionIds: [],
@@ -587,6 +589,10 @@ function PetView() {
       try {
         const res = await petCall('getStatus', {})
         if (!alive || res === null || typeof res !== 'object') return
+        if (typeof res.state === 'string') {
+          store.hostState = res.state
+          store.hostBubble = typeof res.bubble === 'string' ? res.bubble : '空闲'
+        }
         if (Array.isArray(res.activities)) {
           store.activities = res.activities
           notify()
@@ -794,12 +800,14 @@ function PetRoot(props) {
   React.useEffect(() => {
     const next = top
       ? { state: top.state, bubble: top.bubble || statusTextFor(top.state, top.bubble, top.pendingKind) }
-      : { state: 'idle', bubble: '空闲' }
+      : (store.hostState && store.hostState !== 'idle')
+        ? { state: store.hostState, bubble: store.hostBubble || '空闲' }
+        : { state: 'idle', bubble: '空闲' }
     if (store.state.state !== next.state || store.state.bubble !== next.bubble) {
       store.state = next
       notify()
     }
-  }, [top])
+  }, [top, store.hostState, store.hostBubble])
 
   React.useEffect(() => {
     if (store.trayManualOpen) return

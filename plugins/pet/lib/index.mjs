@@ -308,7 +308,9 @@ export function apply(ctx) {
     return machine
   }
   const isKnownSession = (sid) => sid !== null && typeof sid === 'string' &&
-    (knownSessions.has(sid) || sid === currentSession)
+    (knownSessions.has(sid) || sid === currentSession ||
+      // 客户端尚未同步任何会话/尚未识别当前会话时，先跟随所有带 id 的事件，避免宠物一直空闲。
+      (currentSession === null && knownSessions.size === 0))
   const clearAck = (sid) => { acknowledged.delete(sid) }
   const touch = (sid) => { lastEventAt.set(sid, now()) }
   const knownMachine = (sid) => {
@@ -467,10 +469,19 @@ export function apply(ctx) {
         acknowledged: acknowledged.has(sid),
       })
     }
-    const machine = machines.get(currentSession)
-    const current = machine === undefined
-      ? { state: 'idle', bubble: '空闲' }
-      : machine.apply({ kind: 'tick', ts })
+    let machine = machines.get(currentSession)
+    let current = machine === undefined ? null : machine.apply({ kind: 'tick', ts })
+    if (current === null && currentSession === null && activities.length > 0) {
+      const order = { waiting: 0, failed: 1, ready: 2, working: 3 }
+      const top = activities.slice().sort((a, b) => {
+        const pa = order[a.state] !== undefined ? order[a.state] : 9
+        const pb = order[b.state] !== undefined ? order[b.state] : 9
+        if (pa !== pb) return pa - pb
+        return (b.lastEventAt || 0) - (a.lastEventAt || 0)
+      })[0]
+      current = { state: top.state, bubble: top.bubble }
+    }
+    if (current === null) current = { state: 'idle', bubble: '空闲' }
     return { ok: true, state: current.state, bubble: current.bubble, activities, seen: { ...eventCounters }, currentSession }
   }
 
