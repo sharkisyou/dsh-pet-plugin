@@ -314,7 +314,7 @@ const PET_CSS = `
 .dsh-pet-tray-item.current { background: var(--dsw-alias-interactive-bg-active, rgba(120,160,255,.12)); }
 .dsh-pet-tray-title { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dsh-pet-tray-meta { display: flex; gap: 8px; font-size: 11px; color: var(--dsw-alias-label-tertiary, #999); }
-.dsh-pet-tray-toggle { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%);
+.dsh-pet-tray-toggle { position: absolute; right: calc(100% + 8px); bottom: 50%; transform: translateY(50%);
   background: rgba(30,30,30,.9); color: #fff; border: 1px solid rgba(255,255,255,.15);
   border-radius: 999px; padding: 2px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; }
 .dsh-pet-tray-toggle:hover { background: rgba(50,50,50,.95); }
@@ -717,9 +717,10 @@ function PetView() {
     setWake(false)
   }
 
-  const children = [
-    React.createElement('div', { className: 'dsh-pet-bubble' }, s.state.bubble),
-  ]
+  const children = []
+  if (!s.trayOpen) {
+    children.push(React.createElement('div', { className: 'dsh-pet-bubble' }, s.state.bubble))
+  }
   if (!s.trayOpen && s.trayItems.length > 0) {
     children.push(React.createElement(
       'button',
