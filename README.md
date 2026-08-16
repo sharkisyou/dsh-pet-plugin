@@ -1,4 +1,4 @@
-# dsh-pet-plugin
+# dsh-codex-pet
 
 DeepSeek Harness Web 插件：状态驱动悬浮宠物（Codex 宠物包兼容）。
 

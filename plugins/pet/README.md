@@ -70,6 +70,8 @@ npm run build   # 生成 lib/client.js
 npm test        # 纯逻辑 + bundle 一致性 + 原型副本同步
 ```
 
+打包与发布到 npm 的完整说明见 [PUBLISHING.md](./PUBLISHING.md)。
+
 ## VSCode 调试
 
 插件宿主半的 main 入口是 `lib/index.mjs`（`package.json` 的 `"main"` 字段），
@@ -110,12 +112,12 @@ dsh web
 ```yaml
 - insert:
     - id: pet
-      name: 'dsh-pet'
+      name: 'dsh-codex-pet'
       inject: [webServer]
 ```
 
 客户端 bundle 经 `window.__DSH_BOOT__` 注入，路由为
-`/plugins/dsh-pet/client.js`。
+`/plugins/dsh-codex-pet/client.js`。
 
 ## RPC 契约
 

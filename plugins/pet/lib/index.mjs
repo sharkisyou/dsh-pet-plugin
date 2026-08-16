@@ -783,6 +783,22 @@ export function apply(ctx) {
     }
   }
 
+  async function deletePet(args) {
+    try {
+      await ensureInit()
+      const rawId = args !== null && typeof args === 'object' && typeof args.id === 'string' ? args.id : null
+      const id = safeLibraryId(rawId)
+      if (id === null) return { ok: false, error: '非法宠物 id' }
+      const target = petDir(id)
+      if (!(await pathExists(target))) return { ok: false, error: '宠物不存在' }
+      await rm(target, { recursive: true, force: true })
+      spriteCache.delete(id)
+      return { ok: true }
+    } catch (error) {
+      return { ok: false, error: errorText(error) }
+    }
+  }
+
   const handlers = {
     'getStatus': getStatus,
     'setCurrentSession': setCurrentSession,
@@ -793,6 +809,7 @@ export function apply(ctx) {
     'listPets': listPets,
     'listImportCandidates': listImportCandidates,
     'importPet': importPet,
+    'deletePet': deletePet,
     'getPet': getPet,
   }
 
