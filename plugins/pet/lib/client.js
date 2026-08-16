@@ -561,6 +561,7 @@ function ActivityTray() {
         className: 'dsh-pet-tray-item' + (item.current ? ' current' : ''),
         onClick: () => {
           if (item.current) return
+          console.debug('[pet] tray open session', { sessionId: item.sessionId, current: store.currentSession })
           store.trayManualOpen = false
           if (clientCtx !== null && clientCtx.sessions && typeof clientCtx.sessions.open === 'function') {
             clientCtx.sessions.open(item.sessionId)
@@ -783,7 +784,9 @@ function PetRoot(props) {
     if (sessionsList === null || typeof sessionsList !== 'object') return
     const id = extractCurrentSessionId(sessionsList)
     if (id !== store.currentSession) {
+      const prev = store.currentSession
       store.currentSession = id
+      console.debug('[pet] currentSession', { from: prev, to: id })
       notify()
       petCall('setCurrentSession', { sessionId: id }).catch(() => {})
     }
@@ -792,6 +795,7 @@ function PetRoot(props) {
   React.useEffect(() => {
     if (sessionsList === null || typeof sessionsList !== 'object') return
     const ids = sessions.map(entryIdOf).filter((id) => id !== null)
+    console.debug('[pet] syncSessions', { ids })
     petCall('syncSessions', { ids }).catch(() => {})
   }, [sessionsList, sessions])
 
@@ -823,6 +827,7 @@ function PetRoot(props) {
         ? { state: store.hostState, bubble: store.hostBubble || '空闲' }
         : { state: 'idle', bubble: '空闲' }
     if (store.state.state !== next.state || store.state.bubble !== next.bubble) {
+      console.debug('[pet] state ->', next)
       store.state = next
       notify()
     }

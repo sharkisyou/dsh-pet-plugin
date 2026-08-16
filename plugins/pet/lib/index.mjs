@@ -286,6 +286,12 @@ export function apply(ctx) {
   let currentSession = null
   let initPromise = null
   const now = () => Date.now()
+  const debug = process.env.PET_DEBUG === '1'
+  const trace = (msg, data) => {
+    if (!debug) return
+    const detail = data === undefined ? '' : ' ' + JSON.stringify(data)
+    ctx.logger?.info?.(`[pet] ${msg}${detail}`)
+  }
 
   const petDir = (id) => joinPath(libraryDir, id)
   const stateFile = () => joinPath(libraryRoot, 'pet-state.json')
@@ -325,9 +331,12 @@ export function apply(ctx) {
     if (sid === null || !isKnownSession(sid)) return
     const machine = knownMachine(sid)
     if (machine === null) return
+    const before = machine.apply({ kind: 'tick', ts: now() })
     eventCounters.status++
     clearAck(sid)
     machine.apply({ kind: 'agent-status', status: payload.status === 'running' ? 'running' : 'idle', ts: now() })
+    const after = machine.apply({ kind: 'tick', ts: now() })
+    trace('agent/status', { sid, status: payload.status, before, after })
   })
 
   ctx.on('agent/error', (payload) => {
@@ -336,10 +345,13 @@ export function apply(ctx) {
     if (sid === null || !isKnownSession(sid)) return
     const machine = knownMachine(sid)
     if (machine === null) return
+    const before = machine.apply({ kind: 'tick', ts: now() })
     eventCounters.errors++
     clearAck(sid)
     machine.apply({ kind: 'error', ts: now() })
     if (sid === currentSession) acknowledged.add(sid)
+    const after = machine.apply({ kind: 'tick', ts: now() })
+    trace('agent/error', { sid, before, after })
   })
 
   ctx.on('tools/execute', (exec, next) => {
@@ -353,14 +365,18 @@ export function apply(ctx) {
     const name = toolNameOf(exec)
     const isQuestion = name === 'ask_user_question'
     if (isQuestion) pendingKinds.set(sid, 'question')
+    const before = machine.apply({ kind: 'tick', ts: now() })
     machine.apply({ kind: 'tool-start', name, isQuestion, ts: now() })
+    trace('tools/execute start', { sid, name, before, after: machine.apply({ kind: 'tick', ts: now() }) })
     return (async () => {
       try {
         return await next()
       } finally {
         if (isQuestion) pendingKinds.delete(sid)
         touch(sid)
+        const beforeEnd = machine.apply({ kind: 'tick', ts: now() })
         machine.apply({ kind: 'tool-end', ts: now() })
+        trace('tools/execute end', { sid, name, before: beforeEnd, after: machine.apply({ kind: 'tick', ts: now() }) })
       }
     })()
   })
@@ -375,7 +391,9 @@ export function apply(ctx) {
     clearAck(sid)
     pendingKinds.set(sid, 'approval')
     approvalCounts.set(sid, (approvalCounts.get(sid) || 0) + 1)
+    const before = machine.apply({ kind: 'tick', ts: now() })
     machine.apply({ kind: 'approval-start', ts: now() })
+    trace('approval/request start', { sid, before, after: machine.apply({ kind: 'tick', ts: now() }) })
     return (async () => {
       try {
         return await next()
@@ -388,7 +406,9 @@ export function apply(ctx) {
           approvalCounts.set(sid, count)
         }
         touch(sid)
+        const beforeEnd = machine.apply({ kind: 'tick', ts: now() })
         machine.apply({ kind: 'approval-end', ts: now() })
+        trace('approval/request end', { sid, before: beforeEnd, after: machine.apply({ kind: 'tick', ts: now() }) })
       }
     })()
   })
@@ -405,7 +425,9 @@ export function apply(ctx) {
       trackedSubagents.set(child, machineKey)
       eventCounters.subagents++
       clearAck(machineKey)
+      const before = knownMachine(machineKey).apply({ kind: 'tick', ts: now() })
       knownMachine(machineKey).apply({ kind: 'subagent-start', ts: now() })
+      trace('subagent/start', { child, parent: machineKey, before, after: knownMachine(machineKey).apply({ kind: 'tick', ts: now() }) })
     }
     if (parentId !== null && isKnownSession(parentId)) {
       countChild(parentId)
@@ -430,7 +452,9 @@ export function apply(ctx) {
     trackedSubagents.delete(child)
     if (machineKey === null || !isKnownSession(machineKey)) return
     touch(machineKey)
+    const before = machineFor(machineKey).apply({ kind: 'tick', ts: now() })
     machineFor(machineKey).apply({ kind: 'subagent-end', ts: now() })
+    trace('subagent/end', { child, parent: machineKey, before, after: machineFor(machineKey).apply({ kind: 'tick', ts: now() }) })
   }, { global: true })
 
   async function ensureInit() {
@@ -482,6 +506,12 @@ export function apply(ctx) {
       current = { state: top.state, bubble: top.bubble }
     }
     if (current === null) current = { state: 'idle', bubble: '空闲' }
+    trace('getStatus', {
+      currentSession,
+      state: current.state,
+      bubble: current.bubble,
+      activities: activities.map((a) => ({ sessionId: a.sessionId, state: a.state, bubble: a.bubble, lastEventAt: a.lastEventAt, acknowledged: a.acknowledged })),
+    })
     return { ok: true, state: current.state, bubble: current.bubble, activities, seen: { ...eventCounters }, currentSession }
   }
 
@@ -489,6 +519,7 @@ export function apply(ctx) {
     const sid = args !== null && typeof args === 'object' && typeof args.sessionId === 'string'
       ? args.sessionId
       : null
+    const prev = currentSession
     currentSession = sid
     if (sid !== null) {
       knownSessions.add(sid)
@@ -498,6 +529,7 @@ export function apply(ctx) {
         if (result.state === 'failed') acknowledged.add(sid)
       }
     }
+    trace('setCurrentSession', { from: prev, to: sid })
     return { ok: true }
   }
 
@@ -519,6 +551,7 @@ export function apply(ctx) {
     }
     knownSessions.clear()
     for (const id of next) knownSessions.add(id)
+    trace('syncSessions', { ids: raw, known: [...knownSessions] })
     return { ok: true }
   }
 
