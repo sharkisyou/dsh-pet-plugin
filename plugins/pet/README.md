@@ -5,7 +5,8 @@ DSH Web 界面里的状态驱动悬浮宠物。兼容 Codex 宠物包格式（v1
 
 ## 功能
 
-- 状态驱动动画：空闲 / 思考中 / 执行工具 / 等待审批 / 等待回答 / 子代理工作中 / 出错
+- 状态驱动动画：空闲 / 思考中 / 执行工具 / 等待审批 / 等待回答 / 计划审查 / 子代理工作中 / 出错 / 待查看
+- 多会话：跨顶层会话跟踪、按优先级单点展示、活动托盘（点击切换会话）
 - 宠物包：Codex v1/v2 格式解析、PNG/WebP 图集、社区 `animations` 与
   `interactions.click` 扩展
 - 导入：选择本地宠物包目录，校验并复制到 DSH 宠物库
@@ -18,20 +19,21 @@ DSH Web 界面里的状态驱动悬浮宠物。兼容 Codex 宠物包格式（v1
 - 宿主半：`lib/index.mjs`
   - 监听 `agent/status`、`agent/error`、`tools/execute`、`approval/request`、
     `subagent/start|end`
-  - 每个会话一个状态机，切页互不串状态
-  - 提供 `/pet/rpc/<method>` JSON RPC
+  - 每个顶层会话一个状态机，按 sessionId 路由，切页互不串状态
+  - 提供 `/pet/rpc/<method>` JSON RPC，含 `activities` 与 `syncSessions`
 - 客户端半：`lib/client.js`
   - `window.__ModuleLoader__` 工厂，由 `window.__DSH_BOOT__` 注入
-  - `shell.overlay`：只渲染宠物本体与状态气泡
+  - `shell.overlay`：渲染宠物本体、状态气泡与活动托盘
   - `settings.section`：宠物控制面板
-- 纯逻辑：`src/{pet-format,state-machine,animation,base64,image-dims}.js`，
+- 纯逻辑：`src/{pet-format,state-machine,animation,base64,image-dims,multi-session}.js`，
   由 `node:test` 覆盖
-- 构建：`scripts/build-client.mjs` 从 `src/client-ui.js` + `src/animation.js`
-  生成 `lib/client.js`
+- 构建：`scripts/build-client.mjs` 从 `src/client-ui.js` + `src/animation.js` +
+  `src/multi-session.js` 生成 `lib/client.js`
 
 ## 状态 → 动画映射
 
-优先级：失败 > 等待 > 工作 > 空闲。
+单会话优先级：失败 > 等待 > 工作 > 空闲。
+多会话展示优先级：需要输入 > 受阻 > 就绪 > 运行中。
 
 | 宠物状态 | 气泡 | 动画行 | 说明 |
 |---|---|---|---|
@@ -41,6 +43,7 @@ DSH Web 界面里的状态驱动悬浮宠物。兼容 Codex 宠物包格式（v1
 | 等待审批 | `等待审批` | `waiting`（第 7 行） | 审批挂起 |
 | 等待回答 | `等待回答` | `waiting`（第 7 行） | `ask_user_question` 挂起 |
 | 子代理工作中 | `子代理工作中` | `running`（第 8 行） | 子代理生命周期内 |
+| 待查看 | `待查看` | `review`（第 9 行） | 会话完成且有未读活动（绿点） |
 | 出错 | `出错` | `failed`（第 6 行） | 保持到下一次真实活动 |
 
 - 失败状态不会因时间流逝自动回空闲；新回合/工具/审批/子代理到来时清除。
@@ -119,8 +122,10 @@ dsh web
 
 | 方法 | 用途 |
 |---|---|
-| `getStatus` | 当前状态、气泡、事件计数、当前会话 |
-| `setCurrentSession` | 客户端上报当前页面会话 |
+| `getStatus` | 当前状态、气泡、`activities`、事件计数、当前会话 |
+| `setCurrentSession` | 客户端上报当前页面会话；打开 Blocked 会话时标记已确认 |
+| `syncSessions` | 客户端上报顶层会话 id 列表，宿主清理已消失会话 |
+| `resetAcknowledged` | 页面初始化时清除 Blocked 已确认标记 |
 | `loadState` / `saveState` | 读取/保存选中宠物、唤醒、位置 |
 | `listPets` | DSH 宠物库列表 |
 | `listImportCandidates` | Codex 目录下的导入候选 |

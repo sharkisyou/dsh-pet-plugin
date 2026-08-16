@@ -13,7 +13,7 @@ const PROTO = __dirname
 
 const MAP = {
   'host.js': ['pet-format', 'state-machine', 'base64', 'image-dims'],
-  'client.js': ['animation'],
+  'client.js': ['animation', 'multi-session'],
 }
 
 function srcBody(name) {

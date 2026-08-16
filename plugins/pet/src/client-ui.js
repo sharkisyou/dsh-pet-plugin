@@ -95,14 +95,45 @@ const PET_CSS = `
 .dsh-pet-card-frame { position: absolute; left: 0; top: 0; image-rendering: pixelated; pointer-events: none; }
 .dsh-pet-card-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-primary, #eee); }
+.dsh-pet-tray { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%);
+  width: 280px; max-height: 240px; display: flex; flex-direction: column;
+  background: rgba(24,24,24,.96); border: 1px solid var(--dsw-alias-border-l2, rgba(255,255,255,.12));
+  border-radius: 12px; box-shadow: 0 12px 32px rgba(0,0,0,.4); overflow: hidden; }
+.dsh-pet-tray-header { display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--dsw-alias-label-tertiary, #999); border-bottom: 1px solid var(--dsw-alias-border-l1, rgba(255,255,255,.06)); }
+.dsh-pet-tray-close { background: none; border: none; color: var(--dsw-alias-label-tertiary, #aaa);
+  cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px; }
+.dsh-pet-tray-close:hover { color: var(--dsw-alias-label-primary, #eee); }
+.dsh-pet-tray-list { overflow-y: auto; max-height: 200px; padding: 4px; }
+.dsh-pet-tray-item { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
+  background: none; border: none; border-radius: 8px; padding: 6px 8px; cursor: pointer;
+  color: var(--dsw-alias-label-primary, #eee); }
+.dsh-pet-tray-item:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(255,255,255,.06)); }
+.dsh-pet-tray-item.current { background: var(--dsw-alias-interactive-bg-active, rgba(120,160,255,.12)); }
+.dsh-pet-tray-title { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dsh-pet-tray-meta { display: flex; gap: 8px; font-size: 11px; color: var(--dsw-alias-label-tertiary, #999); }
+.dsh-pet-tray-toggle { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%);
+  background: rgba(30,30,30,.9); color: #fff; border: 1px solid rgba(255,255,255,.15);
+  border-radius: 999px; padding: 2px 10px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.dsh-pet-tray-toggle:hover { background: rgba(50,50,50,.95); }
 `
 
 // ===== 客户端共享状态 =====
+
+let clientCtx = null
 
 const store = {
   inited: false,
   currentSession: null,
   state: { state: 'idle', bubble: '空闲' },
+  activities: [],
+  trayItems: [],
+  activeSessionIds: [],
+  trayOpen: false,
+  trayManualOpen: false,
+  traySuppressed: false,
+  suppressedSnapshot: null,
   petId: null,
   pets: [],
   pet: null,
@@ -184,6 +215,7 @@ function ensureInit() {
       } else if (st !== null && typeof st === 'object' && st.ok === false) {
         store.initError = '状态读取失败: ' + (typeof st.error === 'string' ? st.error : '未知')
       }
+      petCall('resetAcknowledged', {}).catch(() => {})
       await refreshPets()
       if (store.petId !== null) await selectPet(store.petId)
     } catch (err) {
@@ -223,7 +255,7 @@ function setWake(next) {
 }
 
 // 宠物状态 → 动画行名
-const STATE_ROW = { idle: 'idle', working: 'running', waiting: 'waiting', failed: 'failed' }
+const STATE_ROW = { idle: 'idle', working: 'running', waiting: 'waiting', failed: 'failed', ready: 'review' }
 
 // ===== 当前会话提取（overlay 的 useSessions prop，防御性读取）=====
 
@@ -242,6 +274,109 @@ function extractCurrentSessionId(list) {
   return null
 }
 
+// ===== 多会话辅助（纯逻辑在 src/multi-session.js 内嵌）=====
+
+function topLevelSessionsOf(list) {
+  if (list === null || typeof list !== 'object') return []
+  if (Array.isArray(list)) return list.filter(isTopLevelSession)
+  const byId = list.byId
+  if (byId === null || typeof byId !== 'object') return []
+  const ids = Array.isArray(list.ids) ? list.ids : Object.keys(byId)
+  const out = []
+  for (const id of ids) {
+    const entry = byId[id]
+    if (isTopLevelSession(entry)) out.push(entry)
+  }
+  return out
+}
+
+function activeIdsOf(items) {
+  return (Array.isArray(items) ? items : []).map((x) => x.sessionId).sort()
+}
+
+function sameIdSet(a, b) {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false
+  }
+  return true
+}
+
+function formatActivityTime(ts) {
+  if (typeof ts !== 'number' || ts <= 0) return ''
+  const d = new Date(ts)
+  const now = new Date()
+  const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  if (sameDay) return `${hh}:${mm}`
+  return `${d.getMonth() + 1}/${d.getDate()} ${hh}:${mm}`
+}
+
+function openTrayManually() {
+  store.trayManualOpen = true
+  store.trayOpen = true
+  store.traySuppressed = false
+  store.suppressedSnapshot = null
+  notify()
+}
+
+function closeTrayManually() {
+  store.trayManualOpen = false
+  store.trayOpen = false
+  store.traySuppressed = true
+  store.suppressedSnapshot = Array.isArray(store.activeSessionIds) ? store.activeSessionIds.slice() : activeIdsOf(store.trayItems)
+  notify()
+}
+
+// ===== 活动托盘 =====
+
+function ActivityTray() {
+  const s = useStore()
+  if (!s.trayOpen) return null
+  const items = Array.isArray(s.trayItems) ? s.trayItems : []
+  const rows = items.map((item) => {
+    const text = statusTextFor(item.state, item.bubble, item.pendingKind)
+    const time = formatActivityTime(item.lastEventAt)
+    return React.createElement(
+      'button',
+      {
+        key: item.sessionId,
+        className: 'dsh-pet-tray-item' + (item.current ? ' current' : ''),
+        onClick: () => {
+          if (item.current) return
+          store.trayManualOpen = false
+          if (clientCtx !== null && clientCtx.sessions && typeof clientCtx.sessions.open === 'function') {
+            clientCtx.sessions.open(item.sessionId)
+          }
+        },
+      },
+      React.createElement('div', { className: 'dsh-pet-tray-title' }, item.title),
+      React.createElement(
+        'div',
+        { className: 'dsh-pet-tray-meta' },
+        React.createElement('span', null, text),
+        time !== '' ? React.createElement('span', null, time) : null,
+      ),
+    )
+  })
+  return React.createElement(
+    'div',
+    { className: 'dsh-pet-tray' },
+    React.createElement(
+      'div',
+      { className: 'dsh-pet-tray-header' },
+      React.createElement('span', null, '活动'),
+      React.createElement('button', { className: 'dsh-pet-tray-close', onClick: closeTrayManually, title: '关闭托盘' }, '×'),
+    ),
+    React.createElement(
+      'div',
+      { className: 'dsh-pet-tray-list' },
+      rows.length > 0 ? rows : React.createElement('div', { className: 'dsh-pet-muted', style: { padding: '8px' } }, '暂无活动'),
+    ),
+  )
+}
+
 // ===== 宠物本体 =====
 
 function PetView() {
@@ -255,8 +390,8 @@ function PetView() {
       try {
         const res = await petCall('getStatus', {})
         if (!alive || res === null || typeof res !== 'object') return
-        if (res.state !== s.state.state || res.bubble !== s.state.bubble) {
-          store.state = { state: res.state, bubble: res.bubble }
+        if (Array.isArray(res.activities)) {
+          store.activities = res.activities
           notify()
         }
       } catch (err) {
@@ -375,16 +510,32 @@ function PetView() {
     setWake(false)
   }
 
-  return React.createElement(
-    'div',
-    { className: 'dsh-pet-root', style: rootStyle },
+  const children = [
     React.createElement('div', { className: 'dsh-pet-bubble' }, s.state.bubble),
+  ]
+  if (!s.trayOpen && s.trayItems.length > 0) {
+    children.push(React.createElement(
+      'button',
+      { className: 'dsh-pet-tray-toggle', onClick: openTrayManually, title: '打开活动托盘' },
+      '活动',
+    ))
+  }
+  if (s.trayOpen) {
+    children.push(React.createElement(ActivityTray))
+  }
+  children.push(
     React.createElement(
       'div',
       { className: 'dsh-pet-canvas', onPointerDown: onPointerDown, onClick: onClickPet },
       React.createElement('img', { className: 'dsh-pet-frame', src: s.spriteUrl, style: frameStyle, alt: '' }),
     ),
     React.createElement('button', { className: 'dsh-pet-hide', onClick: onHide, title: '隐藏' }, '×'),
+  )
+
+  return React.createElement(
+    'div',
+    { className: 'dsh-pet-root', style: rootStyle },
+    ...children,
   )
 }
 
@@ -394,6 +545,18 @@ function PetRoot(props) {
 
   const useSessions = props !== null && typeof props === 'object' ? props.useSessions : undefined
   const sessionsList = typeof useSessions === 'function' ? useSessions(selectAll) : null
+  const sessions = React.useMemo(() => topLevelSessionsOf(sessionsList), [sessionsList])
+  const trayItems = React.useMemo(
+    () => buildTray({ sessions, activities: s.activities, currentSession: s.currentSession }),
+    [sessions, s.activities, s.currentSession],
+  )
+  const allActiveItems = React.useMemo(
+    () => buildAllActive({ sessions, activities: s.activities }),
+    [sessions, s.activities],
+  )
+  const autoOpen = React.useMemo(() => shouldAutoOpen(trayItems, s.currentSession), [trayItems, s.currentSession])
+  const top = React.useMemo(() => pickTop(trayItems), [trayItems])
+
   React.useEffect(() => {
     if (sessionsList === null || typeof sessionsList !== 'object') return
     const id = extractCurrentSessionId(sessionsList)
@@ -403,6 +566,62 @@ function PetRoot(props) {
       petCall('setCurrentSession', { sessionId: id }).catch(() => {})
     }
   }, [sessionsList])
+
+  React.useEffect(() => {
+    if (sessionsList === null || typeof sessionsList !== 'object') return
+    const ids = sessions.map(entryIdOf).filter((id) => id !== null)
+    petCall('syncSessions', { ids }).catch(() => {})
+  }, [sessionsList, sessions])
+
+  React.useEffect(() => {
+    const same = store.trayItems.length === trayItems.length &&
+      store.trayItems.every((item, i) => item.sessionId === trayItems[i].sessionId &&
+        item.state === trayItems[i].state && item.title === trayItems[i].title &&
+        item.current === trayItems[i].current && item.lastEventAt === trayItems[i].lastEventAt)
+    if (!same) {
+      store.trayItems = trayItems
+      notify()
+    }
+  }, [trayItems])
+
+  React.useEffect(() => {
+    const ids = activeIdsOf(allActiveItems)
+    const same = store.activeSessionIds.length === ids.length &&
+      store.activeSessionIds.every((id, i) => id === ids[i])
+    if (!same) {
+      store.activeSessionIds = ids
+      notify()
+    }
+  }, [allActiveItems])
+
+  React.useEffect(() => {
+    const next = top
+      ? { state: top.state, bubble: top.bubble || statusTextFor(top.state, top.bubble, top.pendingKind) }
+      : { state: 'idle', bubble: '空闲' }
+    if (store.state.state !== next.state || store.state.bubble !== next.bubble) {
+      store.state = next
+      notify()
+    }
+  }, [top])
+
+  React.useEffect(() => {
+    if (store.trayManualOpen) return
+    const currentIds = Array.isArray(store.activeSessionIds) ? store.activeSessionIds : activeIdsOf(trayItems)
+    if (store.traySuppressed) {
+      const snap = store.suppressedSnapshot || []
+      if (!sameIdSet(currentIds, snap)) {
+        store.traySuppressed = false
+        store.suppressedSnapshot = null
+        store.trayOpen = autoOpen
+        notify()
+      }
+      return
+    }
+    if (store.trayOpen !== autoOpen) {
+      store.trayOpen = autoOpen
+      notify()
+    }
+  }, [autoOpen, trayItems, store.activeSessionIds, store.trayManualOpen, store.traySuppressed, store.suppressedSnapshot])
 
   if (!s.inited) return null
   if (s.wake && s.pet !== null && s.spriteUrl !== null) {
@@ -718,9 +937,10 @@ function patchPetNavIcon() {
 
 // ===== 插件注册 =====
 
-const inject = ['slots', 'workspaces']
+const inject = ['slots', 'workspaces', 'sessions']
 
 function apply(ctx) {
+  clientCtx = ctx
   ctx.effect(() => patchPetNavIcon(), 'dsh-pet: 设置页导航图标')
 
   ctx.effect(() => {

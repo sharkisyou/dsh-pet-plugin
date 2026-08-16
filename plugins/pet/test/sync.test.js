@@ -36,7 +36,7 @@ function inlineRegion(file, module) {
 
 const expected = {
   'host.js': ['pet-format', 'state-machine', 'base64', 'image-dims'],
-  'client.js': ['animation'],
+  'client.js': ['animation', 'multi-session'],
 }
 
 for (const [file, modules] of Object.entries(expected)) {

@@ -290,9 +290,15 @@ export function apply(ctx) {
   const petDir = (id) => joinPath(libraryDir, id)
   const stateFile = () => joinPath(libraryRoot, 'pet-state.json')
 
-  // 每个会话一个状态机。切页时不会把上一页未结束的工具/审批尾巴带到新页面。
+  // 每个顶层会话一个状态机；多会话时按 sessionId 路由，不再只跟随 currentSession。
   const machines = new Map()
-  const trackedSubagents = new Map() // childSessionId -> 状态机键（父会话或 null）
+  const knownSessions = new Set()
+  const trackedSubagents = new Map() // childSessionId -> 父会话 id
+  const lastEventAt = new Map() // sessionId -> 最近真实事件时间
+  const pendingKinds = new Map() // sessionId -> 'approval' | 'question'
+  const approvalCounts = new Map() // sessionId -> 并发审批数
+  const acknowledged = new Set() // 已确认的 Blocked 会话
+
   const machineFor = (sessionKey) => {
     let machine = machines.get(sessionKey)
     if (machine === undefined) {
@@ -301,40 +307,57 @@ export function apply(ctx) {
     }
     return machine
   }
-  const activeMachineKey = () => currentSession === null ? null : currentSession
-  const relevantMachine = (agent) => {
-    const sid = agentIdOf(agent)
-    if (currentSession !== null && sid !== null && sid !== currentSession) return null
-    return machineFor(activeMachineKey())
+  const isKnownSession = (sid) => sid !== null && typeof sid === 'string' &&
+    (knownSessions.has(sid) || sid === currentSession)
+  const clearAck = (sid) => { acknowledged.delete(sid) }
+  const touch = (sid) => { lastEventAt.set(sid, now()) }
+  const knownMachine = (sid) => {
+    if (!isKnownSession(sid)) return null
+    touch(sid)
+    return machineFor(sid)
   }
 
   ctx.on('agent/status', (payload) => {
     if (payload === null || typeof payload !== 'object') return
-    const machine = relevantMachine(payload.agent)
+    const sid = agentIdOf(payload.agent)
+    if (sid === null || !isKnownSession(sid)) return
+    const machine = knownMachine(sid)
     if (machine === null) return
     eventCounters.status++
+    clearAck(sid)
     machine.apply({ kind: 'agent-status', status: payload.status === 'running' ? 'running' : 'idle', ts: now() })
   })
 
   ctx.on('agent/error', (payload) => {
     if (payload === null || typeof payload !== 'object') return
-    const machine = relevantMachine(payload.agent)
+    const sid = agentIdOf(payload.agent)
+    if (sid === null || !isKnownSession(sid)) return
+    const machine = knownMachine(sid)
     if (machine === null) return
     eventCounters.errors++
+    clearAck(sid)
     machine.apply({ kind: 'error', ts: now() })
+    if (sid === currentSession) acknowledged.add(sid)
   })
 
   ctx.on('tools/execute', (exec, next) => {
     const agent = exec !== null && typeof exec === 'object' ? exec.agent : undefined
-    const machine = relevantMachine(agent)
+    const sid = agentIdOf(agent)
+    if (sid === null || !isKnownSession(sid)) return next()
+    const machine = knownMachine(sid)
     if (machine === null) return next()
     eventCounters.tools++
+    clearAck(sid)
     const name = toolNameOf(exec)
-    machine.apply({ kind: 'tool-start', name, isQuestion: name === 'ask_user_question', ts: now() })
+    const isQuestion = name === 'ask_user_question'
+    if (isQuestion) pendingKinds.set(sid, 'question')
+    machine.apply({ kind: 'tool-start', name, isQuestion, ts: now() })
     return (async () => {
       try {
         return await next()
       } finally {
+        if (isQuestion) pendingKinds.delete(sid)
+        touch(sid)
         machine.apply({ kind: 'tool-end', ts: now() })
       }
     })()
@@ -342,14 +365,27 @@ export function apply(ctx) {
 
   ctx.on('approval/request', (req, next) => {
     const agent = req !== null && typeof req === 'object' ? req.agent : undefined
-    const machine = relevantMachine(agent)
+    const sid = agentIdOf(agent)
+    if (sid === null || !isKnownSession(sid)) return next()
+    const machine = knownMachine(sid)
     if (machine === null) return next()
     eventCounters.approvals++
+    clearAck(sid)
+    pendingKinds.set(sid, 'approval')
+    approvalCounts.set(sid, (approvalCounts.get(sid) || 0) + 1)
     machine.apply({ kind: 'approval-start', ts: now() })
     return (async () => {
       try {
         return await next()
       } finally {
+        const count = (approvalCounts.get(sid) || 1) - 1
+        if (count <= 0) {
+          approvalCounts.delete(sid)
+          if (pendingKinds.get(sid) === 'approval') pendingKinds.delete(sid)
+        } else {
+          approvalCounts.set(sid, count)
+        }
+        touch(sid)
         machine.apply({ kind: 'approval-end', ts: now() })
       }
     })()
@@ -359,22 +395,18 @@ export function apply(ctx) {
     const child = childIdOf(info)
     eventCounters.subagentEvents++
     if (child === null) return
-    eventCounters.lastSubagent = { child, currentSession, parentId: parentIdOfChildSession(ctx, child) }
+    const parentId = parentIdOfChildSession(ctx, child)
+    eventCounters.lastSubagent = { child, parentId }
     const countChild = (machineKey) => {
+      if (machineKey === null || !isKnownSession(machineKey)) return
       if (trackedSubagents.has(child)) return
       trackedSubagents.set(child, machineKey)
       eventCounters.subagents++
-      machineFor(machineKey).apply({ kind: 'subagent-start', ts: now() })
+      clearAck(machineKey)
+      knownMachine(machineKey).apply({ kind: 'subagent-start', ts: now() })
     }
-    // subagent/start 通过作用域 carrier 携带父会话，回调参数里没有 parent；
-    // 这里从刚发布的子会话 header.parentSession 反推父会话进行过滤。
-    if (currentSession === null) {
-      countChild(null)
-      return
-    }
-    const parentId = parentIdOfChildSession(ctx, child)
-    if (parentId !== null && parentId === currentSession) {
-      countChild(currentSession)
+    if (parentId !== null && isKnownSession(parentId)) {
+      countChild(parentId)
       return
     }
     // 子会话可能晚一拍才可见：做几次短延迟重试，仍不可识别则跳过。
@@ -382,9 +414,9 @@ export function apply(ctx) {
       setTimeout(() => {
         if (trackedSubagents.has(child)) return
         const lateParentId = parentIdOfChildSession(ctx, child)
-        eventCounters.lastSubagent = { child, currentSession, parentId: lateParentId, retryDelay: delay }
-        if (lateParentId === null || lateParentId !== currentSession) return
-        countChild(currentSession)
+        eventCounters.lastSubagent = { child, parentId: lateParentId, retryDelay: delay }
+        if (lateParentId === null || !isKnownSession(lateParentId)) return
+        countChild(lateParentId)
       }, delay)
     }
   }, { global: true })
@@ -394,6 +426,8 @@ export function apply(ctx) {
     if (child === null || !trackedSubagents.has(child)) return
     const machineKey = trackedSubagents.get(child)
     trackedSubagents.delete(child)
+    if (machineKey === null || !isKnownSession(machineKey)) return
+    touch(machineKey)
     machineFor(machineKey).apply({ kind: 'subagent-end', ts: now() })
   }, { global: true })
 
@@ -419,11 +453,25 @@ export function apply(ctx) {
   // ===== RPC handlers =====
 
   async function getStatus() {
-    const machine = machines.get(activeMachineKey())
-    const { state, bubble } = machine === undefined
+    const ts = now()
+    const activities = []
+    for (const [sid, machine] of machines) {
+      const result = machine.apply({ kind: 'tick', ts })
+      if (result.state === 'idle') continue
+      activities.push({
+        sessionId: sid,
+        state: result.state,
+        bubble: result.bubble,
+        lastEventAt: lastEventAt.get(sid) || 0,
+        pendingKind: result.state === 'waiting' ? (pendingKinds.get(sid) || null) : null,
+        acknowledged: acknowledged.has(sid),
+      })
+    }
+    const machine = machines.get(currentSession)
+    const current = machine === undefined
       ? { state: 'idle', bubble: '空闲' }
-      : machine.apply({ kind: 'tick', ts: now() })
-    return { ok: true, state, bubble, seen: { ...eventCounters }, currentSession }
+      : machine.apply({ kind: 'tick', ts })
+    return { ok: true, state: current.state, bubble: current.bubble, activities, seen: { ...eventCounters }, currentSession }
   }
 
   async function setCurrentSession(args) {
@@ -431,6 +479,40 @@ export function apply(ctx) {
       ? args.sessionId
       : null
     currentSession = sid
+    if (sid !== null) {
+      knownSessions.add(sid)
+      const machine = machines.get(sid)
+      if (machine !== undefined) {
+        const result = machine.apply({ kind: 'tick', ts: now() })
+        if (result.state === 'failed') acknowledged.add(sid)
+      }
+    }
+    return { ok: true }
+  }
+
+  async function syncSessions(args) {
+    const raw = args !== null && typeof args === 'object' && Array.isArray(args.ids) ? args.ids : []
+    const next = new Set(raw.filter((id) => typeof id === 'string'))
+    if (currentSession !== null) next.add(currentSession)
+    for (const key of machines.keys()) {
+      if (!next.has(key)) {
+        machines.delete(key)
+        lastEventAt.delete(key)
+        pendingKinds.delete(key)
+        approvalCounts.delete(key)
+        acknowledged.delete(key)
+        for (const [child, parent] of trackedSubagents) {
+          if (parent === key) trackedSubagents.delete(child)
+        }
+      }
+    }
+    knownSessions.clear()
+    for (const id of next) knownSessions.add(id)
+    return { ok: true }
+  }
+
+  async function resetAcknowledged() {
+    acknowledged.clear()
     return { ok: true }
   }
 
@@ -662,6 +744,8 @@ export function apply(ctx) {
   const handlers = {
     'getStatus': getStatus,
     'setCurrentSession': setCurrentSession,
+    'syncSessions': syncSessions,
+    'resetAcknowledged': resetAcknowledged,
     'loadState': loadState,
     'saveState': saveState,
     'listPets': listPets,

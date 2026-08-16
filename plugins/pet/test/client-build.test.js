@@ -1,6 +1,6 @@
 'use strict'
 // 持久客户端 bundle 构建测试：lib/client.js 必须由 scripts/build-client.mjs
-// 从 src/{client-ui,animation}.js 可重复生成，且 factory 能注册并导出插件面。
+// 从 src/{client-ui,animation,multi-session}.js 可重复生成，且 factory 能注册并导出插件面。
 const { test } = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
@@ -19,6 +19,7 @@ test('lib/client.js 与生成器输出逐字节一致', async () => {
     pkg.name,
     sourceBody(path.join(SRC, 'client-ui.js')),
     sourceBody(path.join(SRC, 'animation.js')),
+    sourceBody(path.join(SRC, 'multi-session.js')),
   )
   assert.equal(fs.readFileSync(OUT, 'utf8'), expected)
   // 生成路径与测试路径必须一致，防止测试只读缓存。
@@ -44,7 +45,7 @@ test('client bundle 可作为经典脚本解析并注册工厂', () => {
   const exportsOf = handoff.factory(fakeRequire)
   assert.equal(typeof exportsOf.apply, 'function')
   assert.equal(typeof exportsOf.extractCurrentSessionId, 'function')
-  assert.deepEqual(exportsOf.inject, ['slots', 'workspaces'])
+  assert.deepEqual(exportsOf.inject, ['slots', 'workspaces', 'sessions'])
   assert.equal(exportsOf.extractCurrentSessionId({ current: 'session-1' }), 'session-1')
   assert.equal(exportsOf.extractCurrentSessionId({ current: undefined }), null)
 })
