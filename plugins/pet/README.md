@@ -10,7 +10,8 @@ DSH Web 界面里的状态驱动悬浮宠物。兼容 Codex 宠物包格式（v1
 - 宠物包：Codex v1/v2 格式解析、PNG/WebP 图集、社区 `animations` 与
   `interactions.click` 扩展
 - 导入：选择本地宠物包目录，校验并复制到 DSH 宠物库
-- 记忆：选中宠物、唤醒状态、拖拽位置存 `$DSH_HOME/pet-state.json`
+- 记忆：选中宠物、唤醒状态、拖拽位置、缩放比例存 `$DSH_HOME/pet-state.json`
+- 缩放：设置页可调整宠物显示大小（50%–200%）
 - 点击技能：按包声明顺序循环播放
 - 设置页：宠物控制入口（唤醒/隐藏、选择、导入）
 

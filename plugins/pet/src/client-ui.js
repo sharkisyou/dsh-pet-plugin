@@ -146,6 +146,7 @@ const store = {
   clickAnim: null,
   lastClickAnim: null,
   pos: { x: null, y: null },
+  scale: 1,
   initError: null,
   petsError: null,
   listeners: new Set(),
@@ -173,6 +174,7 @@ async function persist() {
       petId: store.petId,
       wake: store.wake,
       pos: store.pos,
+      scale: store.scale,
     })
   } catch (err) {
     console.error('[pet] saveState 失败', String(err))
@@ -214,6 +216,9 @@ function ensureInit() {
         if (st.state.pos && typeof st.state.pos.x === 'number' && typeof st.state.pos.y === 'number') {
           store.pos = { x: st.state.pos.x, y: st.state.pos.y }
         }
+        if (typeof st.state.scale === 'number' && st.state.scale > 0) {
+          store.scale = Math.min(2, Math.max(0.5, st.state.scale))
+        }
       } else if (st !== null && typeof st === 'object' && st.ok === false) {
         store.initError = '状态读取失败: ' + (typeof st.error === 'string' ? st.error : '未知')
       }
@@ -252,6 +257,14 @@ async function refreshPets() {
 function setWake(next) {
   store.wake = next
   if (next) store.greeting = true
+  notify()
+  persist()
+}
+
+function setScale(next) {
+  const scale = Math.min(2, Math.max(0.5, Number(next) || 1))
+  if (store.scale === scale) return
+  store.scale = scale
   notify()
   persist()
 }
@@ -451,8 +464,9 @@ function PetView() {
     }
   }, [finished])
 
-  const cellW = 96
-  const cellH = 104
+  const scale = typeof s.scale === 'number' && s.scale > 0 ? s.scale : 1
+  const cellW = 96 * scale
+  const cellH = 104 * scale
   const frameStyle = {
     width: cellW * 8,
     height: cellH * s.atlasRows,
@@ -533,7 +547,7 @@ function PetView() {
   children.push(
     React.createElement(
       'div',
-      { className: 'dsh-pet-canvas', onPointerDown: onPointerDown, onClick: onClickPet },
+      { className: 'dsh-pet-canvas', style: { width: cellW, height: cellH }, onPointerDown: onPointerDown, onClick: onClickPet },
       React.createElement('img', { className: 'dsh-pet-frame', src: s.spriteUrl, style: frameStyle, alt: '' }),
     ),
     React.createElement('button', { className: 'dsh-pet-hide', onClick: onHide, title: '隐藏' }, '×'),
@@ -842,6 +856,20 @@ function PetMenu(props) {
       { className: 'dsh-pet-item' },
       React.createElement('span', null, s.wake ? '已唤醒' : '已隐藏'),
       React.createElement('button', { className: 'dsh-pet-btn', onClick: () => setWake(!s.wake) }, s.wake ? '隐藏' : '唤醒'),
+    ),
+    React.createElement(
+      'div',
+      { className: 'dsh-pet-item' },
+      React.createElement('span', null, '缩放'),
+      React.createElement('input', {
+        type: 'range',
+        min: 50,
+        max: 200,
+        value: Math.round(s.scale * 100),
+        onChange: (e) => setScale(Number(e.target.value) / 100),
+        style: { flex: 1, minWidth: 0 },
+      }),
+      React.createElement('span', { className: 'dsh-pet-muted' }, `${Math.round(s.scale * 100)}%`),
     ),
     React.createElement(
       'div',
