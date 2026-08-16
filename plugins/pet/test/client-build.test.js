@@ -38,6 +38,7 @@ test('client bundle 可作为经典脚本解析并注册工厂', () => {
   assert.equal(handoff.id, 'dsh-pet')
   const fakeRequire = (spec) => {
     if (spec === 'react') return {}
+    if (spec === 'react-dom') return {}
     throw new Error(`unexpected require(${spec})`)
   }
   const exportsOf = handoff.factory(fakeRequire)

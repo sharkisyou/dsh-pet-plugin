@@ -19,6 +19,7 @@
   ],
   "scripts": {
     "build": "node scripts/build-client.mjs",
+    "debug": "node --inspect-brk=9229 scripts/debug-host.mjs",
     "pretest": "node scripts/build-client.mjs",
     "test": "node --test"
   },

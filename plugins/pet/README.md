@@ -66,6 +66,31 @@ npm run build   # 生成 lib/client.js
 npm test        # 纯逻辑 + bundle 一致性 + 原型副本同步
 ```
 
+## VSCode 调试
+
+插件宿主半的 main 入口是 `lib/index.mjs`（`package.json` 的 `"main"` 字段），
+真正的插件逻辑从该文件导出的 `apply(ctx)` 开始。它不是独立可执行文件，
+需要由 DSH/Cordis 加载；因此调试有两种方式：
+
+1. **用仓库自带的 mock host 调试（推荐，不依赖 DSH 环境）**
+   - 在 VSCode 打开仓库根目录。
+   - 在 `plugins/pet/lib/index.mjs`（或 `src/` 下纯逻辑）里打断点。
+   - 运行 “Debug Pet Plugin (mock host)” 调试配置；它会启动
+     `plugins/pet/scripts/debug-host.mjs`，用临时 `DSH_HOME` 加载真实插件，
+     模拟 `agent/status`、`tools/execute` 和 `/pet/rpc/*`，方便命中宿主半断点。
+   - 也可命令行：`cd plugins/pet && npm run debug`（会以 `--inspect-brk=9229` 启动）。
+
+2. **直接启动/Attach 到真实 DSH Web 进程**
+   - 如果 DSH 已经用调试模式启动（例如 `NODE_OPTIONS='--inspect-brk=9229' dsh web`），
+     在 VSCode 选择 “Attach to DSH Web (9229)” 配置连接即可。
+   - 也可以直接在 VSCode 选择 “Launch DSH Web (debug)” 配置，它会自动以
+     `NODE_OPTIONS='--inspect=9229' dsh web --port 3081` 方式启动 DSH 并 attach。
+   - 插件代码运行在 DSH 主进程内，所以 attach 后需要触发对应事件
+     （如开始一个会话、执行工具、发起审批）才会进入断点。
+   - 注意：如果已经有一个普通方式启动的 DSH 在运行（默认监听 `127.0.0.1:3080`），
+     新的调试实例会因端口被占用而启动失败。仓库自带的 “Launch DSH Web (debug)”
+     已使用 `--port 3081` 启动，避免和旧实例冲突；也可以改成其他空闲端口。
+
 ## 挂载到 DSH Web profile
 
 本包声明了 `dsh.bundle` 和 `dsh.client`。安装为 profile 依赖后，

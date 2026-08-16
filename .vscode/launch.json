@@ -1,0 +1,41 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug Pet Plugin (mock host)",
+      "program": "${workspaceFolder}/plugins/pet/scripts/debug-host.mjs",
+      "cwd": "${workspaceFolder}/plugins/pet",
+      "stopOnEntry": true,
+      "console": "integratedTerminal",
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch DSH Web (debug)",
+      "runtimeExecutable": "dsh",
+      "runtimeArgs": ["web", "--port", "3081"],
+      "env": {
+        "NODE_OPTIONS": "--inspect=9229"
+      },
+      "port": 9229,
+      "stopOnEntry": false,
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "node",
+      "request": "attach",
+      "name": "Attach to DSH Web (9229)",
+      "address": "127.0.0.1",
+      "port": 9229,
+      "restart": true,
+      "localRoot": "${workspaceFolder}",
+      "remoteRoot": "${workspaceFolder}"
+    }
+  ]
+}
