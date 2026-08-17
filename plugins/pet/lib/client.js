@@ -211,6 +211,16 @@ const STATUS_POLL_MS = 500
 const ANIM_TICK_MS = 80
 const DRAG_THRESHOLD_PX = 6
 const PET_RPC_PREFIX = '/pet/rpc/'
+const PET_MARKET_URL = 'https://petdex.dev/zh'
+const PET_MARKET_W = 960
+const PET_MARKET_H = 720
+
+function openPetMarket() {
+  const left = Math.max(0, Math.round((window.screen.width - PET_MARKET_W) / 2))
+  const top = Math.max(0, Math.round((window.screen.height - PET_MARKET_H) / 2))
+  const features = `width=${PET_MARKET_W},height=${PET_MARKET_H},left=${left},top=${top},popup=yes,resizable=yes,scrollbars=yes`
+  window.open(PET_MARKET_URL, 'petdex-market', features)
+}
 
 async function petCall(method, args = {}) {
   const res = await fetch(PET_RPC_PREFIX + encodeURIComponent(method), {
@@ -1492,8 +1502,22 @@ function PetMenu(props) {
     React.createElement(
       'div',
       { className: 'dsh-pet-item' },
+      React.createElement('span', null, '宠物市场'),
+      React.createElement('button', {
+        className: 'dsh-pet-btn',
+        onClick: openPetMarket,
+      }, '打开市场'),
+    ),
+    React.createElement(
+      'div',
+      { className: 'dsh-pet-item' },
       React.createElement('span', null, '导入宠物'),
       React.createElement('button', { className: 'dsh-pet-btn', onClick: openBrowser }, '选择路径…'),
+    ),
+    React.createElement(
+      'div',
+      { className: 'dsh-pet-muted', style: { fontSize: 12 } },
+      '在画廊下载宠物包后，回到这里用「选择路径…」导入。',
     ),
     React.createElement('div', { className: 'dsh-pet-divider' }),
     React.createElement('h4', null, '选择宠物'),
