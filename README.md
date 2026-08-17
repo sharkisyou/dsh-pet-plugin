@@ -17,13 +17,20 @@ DeepSeek Harness Web 插件：状态驱动悬浮宠物（Codex 宠物包兼容�
 
 ## 快速开始
 
+### 方式一：npm 一键安装（推荐）
+
+```sh
+dsh plugin --profile web add @yshark/dsh-codex-pet
+dsh web
+```
+
+### 方式二：本地源码安装（开发调试）
+
 ```sh
 cd plugins/pet
 npm test        # 运行测试并重新生成客户端 bundle
 npm run build   # 仅重新生成客户端 bundle
 ```
-
-安装到 DSH Web profile：
 
 ```sh
 dsh plugin --profile web add link:/绝对路径/plugins/pet

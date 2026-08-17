@@ -1,4 +1,4 @@
-# dsh-pet（持久插件）
+# @yshark/dsh-codex-pet（DSH 宠物插件）
 
 DSH Web 界面里的状态驱动悬浮宠物。兼容 Codex 宠物包格式（v1 + v2），
 通过路径选择导入宠物包，并在 `$DSH_HOME/pets/<id>/` 保存包目录。
@@ -99,8 +99,17 @@ npm test        # 纯逻辑 + bundle 一致性 + 原型副本同步
 
 ## 挂载到 DSH Web profile
 
-本包声明了 `dsh.bundle` 和 `dsh.client`。安装为 profile 依赖后，
-`dsh plugin` 会自动追加到 `dsh.profile.bundles`：
+本包已发布到 npm，声明了 `dsh.bundle` 和 `dsh.client`。安装为 profile 依赖后，
+`dsh plugin` 会自动追加到 `dsh.profile.bundles`。
+
+### npm 安装（推荐）
+
+```sh
+dsh plugin --profile web add @yshark/dsh-codex-pet
+dsh web
+```
+
+### 本地源码安装（开发调试）
 
 ```sh
 dsh plugin --profile web add link:/绝对路径/plugins/pet
@@ -133,10 +142,11 @@ dsh web
 | `listPets` | DSH 宠物库列表 |
 | `listImportCandidates` | Codex 目录下的导入候选 |
 | `importPet` | 校验并复制一个包目录 |
+| `deletePet` | 删除宠物库中的宠物包 |
 | `getPet` | 标准化模型 + 图集 data URL |
 
 ## 边界
 
 - DSH 宠物库保存 Codex 包目录，读取时即时标准化；不反向写入 Codex 目录。
 - 宠物控制入口在设置页；会话头部与右下角不设常驻入口。
-- 首版不做：养成互动（喂食/抚摸）、`/pet` 命令、菜单删除宠物、多窗口同步。
+- 首版不做：养成互动（喂食/抚摸）、`/pet` 命令、多窗口同步。
