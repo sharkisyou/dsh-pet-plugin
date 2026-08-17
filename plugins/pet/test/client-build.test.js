@@ -36,7 +36,7 @@ test('client bundle 可作为经典脚本解析并注册工厂', () => {
   }
   new Function('window', bundle)(fakeWindow)
   assert.ok(handoff !== null)
-  assert.equal(handoff.id, 'dsh-codex-pet')
+  assert.equal(handoff.id, '@yshark/dsh-codex-pet')
   const fakeRequire = (spec) => {
     if (spec === 'react') return {}
     if (spec === 'react-dom') return {}

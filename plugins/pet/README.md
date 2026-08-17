@@ -112,12 +112,12 @@ dsh web
 ```yaml
 - insert:
     - id: pet
-      name: 'dsh-codex-pet'
+      name: '@yshark/dsh-codex-pet'
       inject: [webServer]
 ```
 
 客户端 bundle 经 `window.__DSH_BOOT__` 注入，路由为
-`/plugins/dsh-codex-pet/client.js`。
+`/plugins/@yshark/dsh-codex-pet/client.js`。
 
 ## RPC 契约
 

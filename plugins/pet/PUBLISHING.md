@@ -1,10 +1,10 @@
-# dsh-codex-pet 打包与发布指南
+# @yshark/dsh-codex-pet 打包与发布指南
 
 本文说明如何把本插件打包并发布到 npm，让其他用户可以通过 DSH CLI 一键安装。
 
 ## 1. 包信息
 
-- npm 包名：`dsh-codex-pet`
+- npm 包名：`@yshark/dsh-codex-pet`
 - 插件入口：`lib/index.mjs`
 - 客户端 bundle：`lib/client.js`
 - 组合包 patch：`cordis.patch.yml`
@@ -65,13 +65,13 @@ npm publish
 发布成功后，其他用户即可安装：
 
 ```sh
-dsh plugin --profile web add dsh-codex-pet
+dsh plugin --profile web add @yshark/dsh-codex-pet
 ```
 
 或：
 
 ```sh
-dsh plugin add dsh-codex-pet
+dsh plugin add @yshark/dsh-codex-pet
 ```
 
 ## 5. 更新版本
@@ -85,8 +85,8 @@ npm publish
 
 ## 6. 注意事项
 
-- 包名 `dsh-codex-pet` 会作为插件 id 和客户端路由：
-  - 路由：`/plugins/dsh-codex-pet/client.js`
+- 包名 `@yshark/dsh-codex-pet` 会作为插件 id 和客户端路由：
+  - 路由：`/plugins/@yshark/dsh-codex-pet/client.js`
 - 发布前必须运行 `npm run build`，确保 `lib/client.js` 是最新构建产物。
 - 宿主端 `lib/index.mjs` 在 DSH 进程启动时加载，用户安装/更新后需要重启 DSH Web。
 - 不要随意修改包名，否则旧缓存和旧路由可能残留。

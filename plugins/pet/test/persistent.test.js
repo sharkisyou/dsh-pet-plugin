@@ -17,7 +17,7 @@ test('宠物 id 与图集文件名拒绝路径穿越', async () => {
 test('package.json 声明 dsh.bundle 与 dsh.client 双面契约', () => {
   const fs = require('node:fs')
   const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'))
-  assert.equal(pkg.name, 'dsh-codex-pet')
+  assert.equal(pkg.name, '@yshark/dsh-codex-pet')
   assert.equal(pkg.dsh.client.platform, 'web')
   assert.equal(pkg.exports['./client'], './lib/client.js')
   assert.equal(pkg.exports['.'], './lib/index.mjs')
@@ -27,7 +27,7 @@ test('package.json 声明 dsh.bundle 与 dsh.client 双面契约', () => {
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'cordis.patch.yml')))
   const patch = fs.readFileSync(path.join(__dirname, '..', 'cordis.patch.yml'), 'utf8')
   assert.match(patch, /id: pet/)
-  assert.match(patch, /name: 'dsh-codex-pet'/)
+  assert.match(patch, /name: '@yshark\/dsh-codex-pet'/)
   assert.match(patch, /webServer/)
 })
 
