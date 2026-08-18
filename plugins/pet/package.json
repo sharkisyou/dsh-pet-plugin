@@ -25,7 +25,8 @@
     "PUBLISHING.md",
     "src/pet-format.js",
     "src/state-machine.js",
-    "src/image-dims.js"
+    "src/image-dims.js",
+    "src/update.js"
   ],
   "scripts": {
     "build": "node scripts/build-client.mjs",

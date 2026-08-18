@@ -1273,6 +1273,8 @@ function ChevronGlyph() {
 function PetMenu(props) {
   const s = useStore()
   const [importMsg, setImportMsg] = React.useState(null)
+  const [pluginVersion, setPluginVersion] = React.useState(null)
+  const [updateState, setUpdateState] = React.useState({ checking: false, msg: null, hasUpdate: false, latest: null })
   const [browser, setBrowser] = React.useState({
     open: false,
     path: null,
@@ -1291,6 +1293,11 @@ function PetMenu(props) {
   React.useEffect(() => {
     refreshPets()
     setImportMsg(null)
+    petCall('getPluginVersion', {}).then((res) => {
+      if (res !== null && typeof res === 'object' && res.ok && typeof res.version === 'string') {
+        setPluginVersion(res.version)
+      }
+    }).catch(() => {})
   }, [])
 
   async function handleDeletePet(id) {
@@ -1299,6 +1306,27 @@ function PetMenu(props) {
     if (!window.confirm(`确定删除宠物「${name}」吗？`)) return
     const err = await deletePet(id)
     if (err !== null) window.alert(err)
+  }
+
+  async function checkPluginUpdate() {
+    setUpdateState((u) => ({ ...u, checking: true, msg: null }))
+    try {
+      const res = await petCall('checkUpdate', {})
+      if (res !== null && typeof res === 'object' && res.ok) {
+        if (res.hasUpdate) {
+          setUpdateState({ checking: false, hasUpdate: true, latest: res.latest, msg: `发现新版本 v${res.latest}（当前 v${res.current}），请手动更新插件` })
+        } else if (res.invalidCurrent) {
+          setUpdateState({ checking: false, hasUpdate: false, latest: res.latest, msg: `无法比较版本（当前 ${res.current}，最新 v${res.latest}）` })
+        } else {
+          setUpdateState({ checking: false, hasUpdate: false, latest: res.latest, msg: `已是最新版本 v${res.latest}` })
+        }
+      } else {
+        const err = res !== null && typeof res === 'object' && typeof res.error === 'string' ? res.error : '未知错误'
+        setUpdateState({ checking: false, hasUpdate: false, latest: null, msg: `检查更新失败：${err}` })
+      }
+    } catch (err) {
+      setUpdateState({ checking: false, hasUpdate: false, latest: null, msg: '检查更新异常：' + String(err) })
+    }
   }
 
   async function importFromPath(path) {
@@ -1463,6 +1491,20 @@ function PetMenu(props) {
         onClick: openPetMarket,
       }, '打开市场'),
     ),
+    React.createElement(
+      'div',
+      { className: 'dsh-pet-item' },
+      React.createElement('span', null, '插件版本'),
+      React.createElement('span', { className: 'dsh-pet-muted' }, pluginVersion !== null ? `v${pluginVersion}` : '…'),
+      React.createElement('button', {
+        className: 'dsh-pet-btn',
+        onClick: checkPluginUpdate,
+        disabled: updateState.checking,
+      }, updateState.checking ? '检查中…' : '检查更新'),
+    ),
+    updateState.msg !== null
+      ? React.createElement('div', { className: 'dsh-pet-muted', style: { fontSize: 12 } }, updateState.msg)
+      : null,
     React.createElement(
       'div',
       { className: 'dsh-pet-item' },

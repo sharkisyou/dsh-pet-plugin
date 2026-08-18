@@ -11,6 +11,7 @@ const {
 } = require('../src/pet-format.js')
 const { createPetStateMachine } = require('../src/state-machine.js')
 const { imageDims, spriteMime } = require('../src/image-dims.js')
+const { checkForUpdate } = require('../src/update.js')
 
 // ===== 常量 =====
 
@@ -828,6 +829,48 @@ export function apply(ctx) {
     }
   }
 
+  const UPDATE_CACHE_MS = 60 * 1000
+  let updateCache = null
+  let updateCacheAt = 0
+
+  async function getPluginVersion() {
+    try {
+      const pkg = require('../package.json')
+      return {
+        ok: true,
+        name: typeof pkg.name === 'string' ? pkg.name : '',
+        version: typeof pkg.version === 'string' ? pkg.version : '0.0.0',
+      }
+    } catch (error) {
+      return { ok: false, error: errorText(error) }
+    }
+  }
+
+  async function checkUpdate(args) {
+    try {
+      const now = Date.now()
+      if (updateCache !== null && now - updateCacheAt < UPDATE_CACHE_MS) {
+        return { ...updateCache, cached: true }
+      }
+      const pkg = require('../package.json')
+      const registry = (args !== null && typeof args === 'object' && typeof args.registry === 'string' && args.registry !== '')
+        ? args.registry
+        : (process.env.DSH_PET_REGISTRY || undefined)
+      const result = await checkForUpdate({
+        current: typeof pkg.version === 'string' ? pkg.version : '0.0.0',
+        packageName: typeof pkg.name === 'string' ? pkg.name : '',
+        registry,
+      })
+      if (result.ok) {
+        updateCache = result
+        updateCacheAt = now
+      }
+      return result
+    } catch (error) {
+      return { ok: false, error: errorText(error) }
+    }
+  }
+
   const handlers = {
     'getStatus': getStatus,
     'setCurrentSession': setCurrentSession,
@@ -840,6 +883,8 @@ export function apply(ctx) {
     'importPet': importPet,
     'deletePet': deletePet,
     'getPet': getPet,
+    'getPluginVersion': getPluginVersion,
+    'checkUpdate': checkUpdate,
   }
 
   ctx.effect(() => ctx.webServer.register({
