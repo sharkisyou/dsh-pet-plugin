@@ -11,14 +11,11 @@ const ANIM_TICK_MS = 80
 const DRAG_THRESHOLD_PX = 6
 const PET_RPC_PREFIX = '/pet/rpc/'
 const PET_MARKET_URL = 'https://petdex.dev/zh'
-const PET_MARKET_W = 960
-const PET_MARKET_H = 720
 
 function openPetMarket() {
-  const left = Math.max(0, Math.round((window.screen.width - PET_MARKET_W) / 2))
-  const top = Math.max(0, Math.round((window.screen.height - PET_MARKET_H) / 2))
-  const features = `width=${PET_MARKET_W},height=${PET_MARKET_H},left=${left},top=${top},popup=yes,resizable=yes,scrollbars=yes`
-  window.open(PET_MARKET_URL, 'petdex-market', features)
+  // 用普通新标签页打开，保留浏览器完整界面（前进/后退/地址栏）：
+  // 若带 popup=yes 或尺寸参数，浏览器会按弹窗处理并隐藏导航栏。
+  window.open(PET_MARKET_URL, '_blank', 'noopener')
 }
 
 async function petCall(method, args = {}) {
