@@ -126,7 +126,7 @@ test('getStatus.activities 汇总多个顶层会话状态，并按等待/失败/
     res = await h.rpc('getStatus')
     const s1 = res.body.activities.find((a) => a.sessionId === 's1')
     assert.equal(s1.state, 'failed')
-    assert.equal(s1.bubble, '出错')
+    assert.equal(s1.bubbleKey, 'failed')
   } finally {
     await h.cleanup()
   }
@@ -200,8 +200,8 @@ test('子代理 start/end 计入父会话，子代理自身不产生独立活动
     await h.emit('subagent/start', { id: 'c1' })
     let res = await h.rpc('getStatus')
     assert.deepEqual(
-      res.body.activities.map((a) => [a.sessionId, a.state, a.bubble]),
-      [['s1', 'working', '子代理工作中']],
+      res.body.activities.map((a) => [a.sessionId, a.state, a.bubbleKey]),
+      [['s1', 'working', 'subagentWorking']],
     )
 
     await h.emit('subagent/end', { id: 'c1' })

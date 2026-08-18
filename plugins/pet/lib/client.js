@@ -4,6 +4,184 @@ window.__ModuleLoader__.load({
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
+// 插件中英文字典与翻译纯逻辑（无副作用）。
+// 本文件同时作为客户端 bundle 的内嵌副本来源，不要引入 require/import。
+// 客户端通过 DSH 的 ctx.locale 注册本字典；translate() 供测试与回退使用。
+
+const PET_NS = 'pet'
+
+const zh = {
+  idle: '空闲',
+  thinking: '思考中',
+  executingTool: '执行工具 {name}',
+  waitingApproval: '等待审批',
+  waitingAnswer: '等待回答',
+  awaitingReply: '等待回复',
+  subagentWorking: '子代理工作中',
+  failed: '出错',
+  planReview: '计划审查',
+  waitingInput: '等待输入',
+  ready: '待查看',
+  petTitle: '宠物',
+  awake: '已唤醒',
+  hidden: '已隐藏',
+  hideBtn: '隐藏',
+  wakeBtn: '唤醒',
+  scale: '缩放',
+  market: '宠物市场',
+  openMarket: '打开市场',
+  pluginVersion: '插件版本',
+  checking: '检查中…',
+  checkUpdate: '检查更新',
+  importPet: '导入宠物',
+  choosePath: '选择路径…',
+  marketHint: '在画廊下载宠物包后，回到这里用「选择路径…」导入。',
+  selectPet: '选择宠物',
+  libraryEmpty: '宠物库为空，请先导入宠物',
+  importing: '导入中…',
+  importOk: '导入成功',
+  importSuccess: '导入成功 {count} 个',
+  importSkipped: '跳过 {count} 个',
+  importFailed: '失败 {count} 个',
+  importDetail: '详情：{detail}',
+  importFail: '导入失败：{error}',
+  importError: '导入异常：{error}',
+  deleteConfirm: '确定删除宠物「{name}」吗？',
+  deletePet: '删除宠物',
+  chooseDirTitle: '选择宠物包目录',
+  editPath: '编辑路径',
+  editPathHint: '输入路径后回车跳转',
+  emptyDir: '空目录',
+  showHidden: '显示隐藏文件',
+  cancel: '取消',
+  chooseThisDir: '选择此目录',
+  noDirSupport: '当前环境不支持目录浏览',
+  noActivity: '暂无活动',
+  activityList: '活动列表',
+  dragHint: '拖动可移动宠物',
+  activity: '活动',
+  closeTray: '关闭托盘',
+  closeActivityTray: '关闭活动托盘',
+  openTray: '打开活动托盘',
+  hide: '隐藏',
+  zoomOut: '缩小',
+  zoomOutAria: '缩小宠物',
+  petScale: '宠物缩放',
+  zoomIn: '放大',
+  zoomInAria: '放大宠物',
+  resetTo100: '重置为 100%',
+  resetAria: '重置为 100%',
+  reset: '重置',
+  home: '主目录',
+  loading: '加载中…',
+  updateNew: '发现新版本 v{latest}（当前 v{current}），请手动更新插件',
+  updateCannotCompare: '无法比较版本（当前 {current}，最新 v{latest}）',
+  updateUpToDate: '已是最新版本 v{latest}',
+  updateFailed: '检查更新失败：{error}',
+  updateError: '检查更新异常：{error}',
+  unknownError: '未知错误',
+  statusReadFailed: '状态读取失败: {error}',
+  initError: '初始化异常: {error}',
+  readPetsFailed: '读取宠物库失败: {error}',
+  readPetsError: '读取宠物库异常: {error}',
+  deleteFailed: '删除失败',
+  deleteError: '删除异常: {error}',
+}
+
+const en = {
+  idle: 'Idle',
+  thinking: 'Thinking',
+  executingTool: 'Running tool {name}',
+  waitingApproval: 'Awaiting approval',
+  waitingAnswer: 'Awaiting your answer',
+  awaitingReply: 'Awaiting reply',
+  subagentWorking: 'Subagent working',
+  failed: 'Error',
+  planReview: 'Reviewing plan',
+  waitingInput: 'Waiting for input',
+  ready: 'Ready to review',
+  petTitle: 'Pet',
+  awake: 'Awake',
+  hidden: 'Hidden',
+  hideBtn: 'Hide',
+  wakeBtn: 'Wake',
+  scale: 'Scale',
+  market: 'Pet Market',
+  openMarket: 'Open Market',
+  pluginVersion: 'Plugin Version',
+  checking: 'Checking…',
+  checkUpdate: 'Check Update',
+  importPet: 'Import Pet',
+  choosePath: 'Choose Path…',
+  marketHint: 'After downloading a pet package from the gallery, come back and use "Choose Path…" to import.',
+  selectPet: 'Select Pet',
+  libraryEmpty: 'Pet library is empty. Please import a pet first.',
+  importing: 'Importing…',
+  importOk: 'Import successful',
+  importSuccess: 'Imported {count}',
+  importSkipped: 'Skipped {count}',
+  importFailed: 'Failed {count}',
+  importDetail: 'Details: {detail}',
+  importFail: 'Import failed: {error}',
+  importError: 'Import error: {error}',
+  deleteConfirm: 'Delete pet "{name}"?',
+  deletePet: 'Delete pet',
+  chooseDirTitle: 'Select Pet Package Directory',
+  editPath: 'Edit path',
+  editPathHint: 'Type a path and press Enter to jump',
+  emptyDir: 'Empty directory',
+  showHidden: 'Show hidden files',
+  cancel: 'Cancel',
+  chooseThisDir: 'Select This Directory',
+  noDirSupport: 'Directory browsing is not supported in this environment',
+  noActivity: 'No activity',
+  activityList: 'Activity list',
+  dragHint: 'Drag to move the pet',
+  activity: 'Activity',
+  closeTray: 'Close tray',
+  closeActivityTray: 'Close activity tray',
+  openTray: 'Open activity tray',
+  hide: 'Hide',
+  zoomOut: 'Shrink',
+  zoomOutAria: 'Shrink pet',
+  petScale: 'Pet scale',
+  zoomIn: 'Enlarge',
+  zoomInAria: 'Enlarge pet',
+  resetTo100: 'Reset to 100%',
+  resetAria: 'Reset to 100%',
+  reset: 'Reset',
+  home: 'Home',
+  loading: 'Loading…',
+  updateNew: 'New version v{latest} available (current v{current}). Please update the plugin manually.',
+  updateCannotCompare: 'Cannot compare versions (current {current}, latest v{latest}).',
+  updateUpToDate: 'You are up to date (v{latest}).',
+  updateFailed: 'Update check failed: {error}',
+  updateError: 'Update check error: {error}',
+  unknownError: 'Unknown error',
+  statusReadFailed: 'Failed to read state: {error}',
+  initError: 'Initialization error: {error}',
+  readPetsFailed: 'Failed to read pet library: {error}',
+  readPetsError: 'Pet library read error: {error}',
+  deleteFailed: 'Delete failed',
+  deleteError: 'Delete error: {error}',
+}
+
+function localeFromTag(tag) {
+  if (typeof tag !== 'string') return 'zh'
+  const primary = tag.toLowerCase().split('-')[0]
+  return primary === 'en' ? 'en' : 'zh'
+}
+
+function translate(locale, key, params) {
+  const dict = locale === 'en' ? en : zh
+  let text = Object.prototype.hasOwnProperty.call(dict, key) ? dict[key] : key
+  if (params !== null && typeof params === 'object') {
+    for (const [name, value] of Object.entries(params)) {
+      text = text.split(`{${name}}`).join(String(value))
+    }
+  }
+  return text
+}
 // 动画帧选择：给定动画定义与已播放时长，返回当前帧与是否播完（纯逻辑）。
 
 const FALLBACK_FRAME_MS = 140
@@ -46,22 +224,22 @@ function cycleNext(current, list) {
 
 const STATE_PRIORITY = { waiting: 0, failed: 1, ready: 2, working: 3, idle: 4 }
 
-function statusTextFor(state, hostBubble, pendingKind) {
+function statusKeyFor(state, hostKey, hostParams, pendingKind) {
   switch (state) {
     case 'waiting':
-      if (pendingKind === 'approval') return '等待审批'
-      if (pendingKind === 'question') return '等待回答'
-      if (pendingKind === 'plan-review') return '计划审查'
-      return hostBubble || '等待输入'
+      if (pendingKind === 'approval') return { bubbleKey: 'waitingApproval', bubbleParams: null }
+      if (pendingKind === 'question') return { bubbleKey: 'waitingAnswer', bubbleParams: null }
+      if (pendingKind === 'plan-review') return { bubbleKey: 'planReview', bubbleParams: null }
+      return { bubbleKey: hostKey || 'waitingInput', bubbleParams: hostParams || null }
     case 'failed':
-      return '出错'
+      return { bubbleKey: 'failed', bubbleParams: null }
     case 'ready':
-      return '待查看'
+      return { bubbleKey: 'ready', bubbleParams: null }
     case 'working':
-      return hostBubble || '思考中'
+      return { bubbleKey: hostKey || 'thinking', bubbleParams: hostParams || null }
     case 'idle':
     default:
-      return hostBubble || '空闲'
+      return { bubbleKey: hostKey || 'idle', bubbleParams: hostParams || null }
   }
 }
 
@@ -80,7 +258,8 @@ function isTopLevelSession(entry) {
 function mergeSession({ sessionId, hostActivity, summary, currentSession }) {
   const host = hostActivity !== null && typeof hostActivity === 'object' ? hostActivity : null
   let state = host ? host.state : 'idle'
-  let bubble = host ? host.bubble : null
+  let bubbleKey = host ? host.bubbleKey : null
+  let bubbleParams = host ? host.bubbleParams : null
   let pendingKind = host && host.pendingKind ? host.pendingKind : null
   let lastEventAt = host && typeof host.lastEventAt === 'number' ? host.lastEventAt : 0
   let acknowledged = host ? host.acknowledged === true : false
@@ -89,15 +268,24 @@ function mergeSession({ sessionId, hostActivity, summary, currentSession }) {
     if (summary.pendingInteraction) {
       state = 'waiting'
       pendingKind = summary.pendingInteraction
-      bubble = statusTextFor('waiting', null, pendingKind)
+      const keyed = statusKeyFor('waiting', null, null, pendingKind)
+      bubbleKey = keyed.bubbleKey
+      bubbleParams = keyed.bubbleParams
     }
     if (summary.completed === true && state !== 'waiting' && state !== 'failed') {
       state = 'ready'
-      bubble = '待查看'
+      bubbleKey = 'ready'
+      bubbleParams = null
     }
     if (summary.running === true && state !== 'waiting' && state !== 'failed') {
       state = 'working'
-      bubble = host && host.bubble ? host.bubble : '思考中'
+      if (host && host.bubbleKey) {
+        bubbleKey = host.bubbleKey
+        bubbleParams = host.bubbleParams || null
+      } else {
+        bubbleKey = 'thinking'
+        bubbleParams = null
+      }
     }
     if (typeof summary.updatedAt === 'number') {
       lastEventAt = Math.max(lastEventAt, summary.updatedAt)
@@ -106,7 +294,7 @@ function mergeSession({ sessionId, hostActivity, summary, currentSession }) {
 
   const active = state !== 'idle'
   const reminder = !(state === 'failed' && acknowledged && sessionId !== currentSession)
-  return { sessionId, state, bubble, pendingKind, lastEventAt, acknowledged, active, reminder }
+  return { sessionId, state, bubbleKey, bubbleParams, pendingKind, lastEventAt, acknowledged, active, reminder }
 }
 
 function buildTray({ sessions, activities, currentSession }) {
@@ -456,13 +644,20 @@ const PET_CSS = `
 // ===== 客户端共享状态 =====
 
 let clientCtx = null
+let clientLocale = 'zh'
+let clientT = (key, params) => (params !== null && typeof params === 'object' ? key : key)
+
+function t(key, params) {
+  return clientT(key, params)
+}
 
 const store = {
   inited: false,
   currentSession: null,
-  state: { state: 'idle', bubble: '空闲' },
+  state: { state: 'idle', bubbleKey: 'idle', bubbleParams: null },
   hostState: 'idle',
-  hostBubble: '空闲',
+  hostBubbleKey: 'idle',
+  hostBubbleParams: null,
   activities: [],
   trayItems: [],
   activeSessionIds: [],
@@ -554,13 +749,13 @@ function ensureInit() {
           store.scale = Math.min(2, Math.max(0.5, st.state.scale))
         }
       } else if (st !== null && typeof st === 'object' && st.ok === false) {
-        store.initError = '状态读取失败: ' + (typeof st.error === 'string' ? st.error : '未知')
+        store.initError = t('statusReadFailed', { error: typeof st.error === 'string' ? st.error : t('unknownError') })
       }
       petCall('resetAcknowledged', {}).catch(() => {})
       await refreshPets()
       if (store.petId !== null) await selectPet(store.petId)
     } catch (err) {
-      store.initError = '初始化异常: ' + String(err)
+      store.initError = t('initError', { error: String(err) })
       console.error('[pet] init 异常', String(err))
     } finally {
       store.inited = true
@@ -578,12 +773,13 @@ async function refreshPets() {
       store.petsError = null
       notify()
     } else {
-      store.petsError = '读取宠物库失败: ' +
-        (list !== null && typeof list === 'object' && typeof list.error === 'string' ? list.error : '无响应')
+      store.petsError = t('readPetsFailed', {
+        error: list !== null && typeof list === 'object' && typeof list.error === 'string' ? list.error : t('unknownError'),
+      })
       notify()
     }
   } catch (err) {
-    store.petsError = '读取宠物库异常: ' + String(err)
+    store.petsError = t('readPetsError', { error: String(err) })
     console.error('[pet] listPets 失败', String(err))
   }
 }
@@ -604,9 +800,9 @@ async function deletePet(id) {
       await refreshPets()
       return null
     }
-    return res !== null && typeof res === 'object' && typeof res.error === 'string' ? res.error : '删除失败'
+    return res !== null && typeof res === 'object' && typeof res.error === 'string' ? res.error : t('deleteFailed')
   } catch (err) {
-    return '删除异常: ' + String(err)
+    return t('deleteError', { error: String(err) })
   }
 }
 
@@ -804,7 +1000,7 @@ function ActivityTray({ closing = false }) {
   }
 
   const rows = items.map((item) => {
-    const text = statusTextFor(item.state, item.bubble, item.pendingKind)
+    const text = t(item.bubbleKey || 'idle', item.bubbleParams || undefined)
     const time = formatActivityTime(item.lastEventAt)
     return React.createElement(
       'button',
@@ -845,23 +1041,23 @@ function ActivityTray({ closing = false }) {
       className: 'dsh-pet-tray' + (closing ? ' dsh-pet-tray-closing' : ' dsh-pet-tray-open'),
       style: placementStyle,
       role: 'dialog',
-      'aria-label': '活动列表',
+      'aria-label': t('activityList'),
     },
     React.createElement(
       'div',
-      { className: 'dsh-pet-tray-header', onPointerDown: onTrayHeaderPointerDown, title: '拖动可移动宠物', style: { cursor: 'move' } },
-      React.createElement('span', null, '活动'),
+      { className: 'dsh-pet-tray-header', onPointerDown: onTrayHeaderPointerDown, title: t('dragHint'), style: { cursor: 'move' } },
+      React.createElement('span', null, t('activity')),
       React.createElement('button', {
         className: 'dsh-pet-tray-close',
         onClick: closeTrayManually,
-        title: '关闭托盘',
-        'aria-label': '关闭活动托盘',
+        title: t('closeTray'),
+        'aria-label': t('closeActivityTray'),
       }, '×'),
     ),
     React.createElement(
       'div',
       { className: 'dsh-pet-tray-list' },
-      rows.length > 0 ? rows : React.createElement('div', { className: 'dsh-pet-muted', style: { padding: '8px' } }, '暂无活动'),
+      rows.length > 0 ? rows : React.createElement('div', { className: 'dsh-pet-muted', style: { padding: '8px' } }, t('noActivity')),
     ),
   )
 }
@@ -900,7 +1096,8 @@ function PetView() {
         if (!alive || res === null || typeof res !== 'object') return
         if (typeof res.state === 'string') {
           store.hostState = res.state
-          store.hostBubble = typeof res.bubble === 'string' ? res.bubble : '空闲'
+          store.hostBubbleKey = typeof res.bubbleKey === 'string' ? res.bubbleKey : 'idle'
+          store.hostBubbleParams = res.bubbleParams !== null && typeof res.bubbleParams === 'object' ? res.bubbleParams : null
         }
         if (Array.isArray(res.activities)) {
           store.activities = res.activities
@@ -1042,13 +1239,13 @@ function PetView() {
         {
           className: 'dsh-pet-bubble dsh-pet-bubble--action',
           onClick: (e) => { e.stopPropagation(); openTrayManually() },
-          title: '打开活动托盘',
-          'aria-label': '打开活动托盘',
+          title: t('openTray'),
+          'aria-label': t('openTray'),
         },
-        `${s.state.bubble} ▾`,
+        `${t(s.state.bubbleKey, s.state.bubbleParams || undefined)} ▾`,
       ))
     } else {
-      children.push(React.createElement('div', { className: 'dsh-pet-bubble' }, s.state.bubble))
+      children.push(React.createElement('div', { className: 'dsh-pet-bubble' }, t(s.state.bubbleKey, s.state.bubbleParams || undefined)))
     }
   }
   if (showTray) {
@@ -1060,7 +1257,7 @@ function PetView() {
       { className: 'dsh-pet-canvas', style: { width: cellW, height: cellH }, onPointerDown: onPointerDown, onClick: onClickPet },
       React.createElement('img', { className: 'dsh-pet-frame', src: s.spriteUrl, style: frameStyle, alt: '' }),
     ),
-    React.createElement('button', { className: 'dsh-pet-hide', onClick: onHide, title: '隐藏' }, '×'),
+    React.createElement('button', { className: 'dsh-pet-hide', onClick: onHide, title: t('hide') }, '×'),
   )
 
   return React.createElement(
@@ -1130,16 +1327,16 @@ function PetRoot(props) {
 
   React.useEffect(() => {
     const next = top
-      ? { state: top.state, bubble: top.bubble || statusTextFor(top.state, top.bubble, top.pendingKind) }
+      ? { state: top.state, bubbleKey: top.bubbleKey || 'idle', bubbleParams: top.bubbleParams || null }
       : (store.hostState && store.hostState !== 'idle')
-        ? { state: store.hostState, bubble: store.hostBubble || '空闲' }
-        : { state: 'idle', bubble: '空闲' }
-    if (store.state.state !== next.state || store.state.bubble !== next.bubble) {
+        ? { state: store.hostState, bubbleKey: store.hostBubbleKey || 'idle', bubbleParams: store.hostBubbleParams || null }
+        : { state: 'idle', bubbleKey: 'idle', bubbleParams: null }
+    if (store.state.state !== next.state || store.state.bubbleKey !== next.bubbleKey) {
       console.debug('[pet] state ->', next)
       store.state = next
       notify()
     }
-  }, [top, store.hostState, store.hostBubble])
+  }, [top, store.hostState, store.hostBubbleKey, store.hostBubbleParams])
 
   React.useEffect(() => {
     if (store.trayManualOpen) return
@@ -1227,10 +1424,10 @@ function PetPreviewCard({ pet, selected, onSelect, onDelete }) {
       React.createElement('button', {
         className: 'dsh-pet-card-delete',
         onClick: (e) => { e.stopPropagation(); onDelete(pet.id) },
-        title: '删除宠物',
-        'aria-label': `删除宠物 ${pet.displayName}`,
+        title: t('deletePet'),
+        'aria-label': t('deletePet') + ' ' + pet.displayName,
       }, '🗑'),
-      React.createElement('div', { className: 'dsh-pet-card-preview' }, '加载中…'),
+      React.createElement('div', { className: 'dsh-pet-card-preview' }, t('loading')),
       React.createElement('div', { className: 'dsh-pet-card-name' }, pet.displayName),
     )
   }
@@ -1269,8 +1466,8 @@ function PetPreviewCard({ pet, selected, onSelect, onDelete }) {
     React.createElement('button', {
       className: 'dsh-pet-card-delete',
       onClick: (e) => { e.stopPropagation(); onDelete(pet.id) },
-      title: '删除宠物',
-      'aria-label': `删除宠物 ${pet.displayName}`,
+      title: t('deletePet'),
+      'aria-label': t('deletePet') + ' ' + pet.displayName,
     }, '🗑'),
     React.createElement(
       'div',
@@ -1396,8 +1593,8 @@ function ScaleControl() {
       onPointerCancel: finishPointer,
       onClick: handleClick('minus'),
       disabled: scale <= 0.5,
-      title: '缩小',
-      'aria-label': '缩小宠物',
+      title: t('zoomOut'),
+      'aria-label': t('zoomOutAria'),
     }, '−'),
     React.createElement(
       'div',
@@ -1412,7 +1609,7 @@ function ScaleControl() {
         value: sliderPos,
         onChange: handleSliderChange,
         style: { '--dsh-pet-scale-fill': `${fillPct}%` },
-        'aria-label': '宠物缩放',
+        'aria-label': t('petScale'),
         'aria-valuetext': `${percent}%`,
       }),
     ),
@@ -1424,17 +1621,17 @@ function ScaleControl() {
       onPointerCancel: finishPointer,
       onClick: handleClick('plus'),
       disabled: scale >= 2,
-      title: '放大',
-      'aria-label': '放大宠物',
+      title: t('zoomIn'),
+      'aria-label': t('zoomInAria'),
     }, '+'),
     React.createElement('span', { className: 'dsh-pet-scale-value' }, `${percent}%`),
     React.createElement('button', {
       ...commonButtonProps,
       onClick: () => setScale(1),
       disabled: percent === 100,
-      title: '重置为 100%',
-      'aria-label': '重置为 100%',
-    }, '重置'),
+      title: t('resetTo100'),
+      'aria-label': t('resetAria'),
+    }, t('reset')),
   )
 }
 
@@ -1445,7 +1642,7 @@ function displayCrumbs(crumbs, home) {
   if (!home || !Array.isArray(crumbs)) return crumbs || []
   const idx = crumbs.findIndex((c) => c !== null && typeof c === 'object' && c.path === home)
   if (idx < 0) return crumbs
-  return [{ name: '主目录', path: home, hidden: false }, ...crumbs.slice(idx + 1)]
+  return [{ name: t('home'), path: home, hidden: false }, ...crumbs.slice(idx + 1)]
 }
 
 function FolderGlyph({ open, selected }) {
@@ -1504,7 +1701,7 @@ function PetMenu(props) {
   async function handleDeletePet(id) {
     const pet = s.pets.find((p) => p.id === id)
     const name = pet !== undefined && pet.displayName ? pet.displayName : id
-    if (!window.confirm(`确定删除宠物「${name}」吗？`)) return
+    if (!window.confirm(t('deleteConfirm', { name }))) return
     const err = await deletePet(id)
     if (err !== null) window.alert(err)
   }
@@ -1515,18 +1712,18 @@ function PetMenu(props) {
       const res = await petCall('checkUpdate', {})
       if (res !== null && typeof res === 'object' && res.ok) {
         if (res.hasUpdate) {
-          setUpdateState({ checking: false, hasUpdate: true, latest: res.latest, msg: `发现新版本 v${res.latest}（当前 v${res.current}），请手动更新插件` })
+          setUpdateState({ checking: false, hasUpdate: true, latest: res.latest, msg: t('updateNew', { latest: res.latest, current: res.current }) })
         } else if (res.invalidCurrent) {
-          setUpdateState({ checking: false, hasUpdate: false, latest: res.latest, msg: `无法比较版本（当前 ${res.current}，最新 v${res.latest}）` })
+          setUpdateState({ checking: false, hasUpdate: false, latest: res.latest, msg: t('updateCannotCompare', { current: res.current, latest: res.latest }) })
         } else {
-          setUpdateState({ checking: false, hasUpdate: false, latest: res.latest, msg: `已是最新版本 v${res.latest}` })
+          setUpdateState({ checking: false, hasUpdate: false, latest: res.latest, msg: t('updateUpToDate', { latest: res.latest }) })
         }
       } else {
-        const err = res !== null && typeof res === 'object' && typeof res.error === 'string' ? res.error : '未知错误'
-        setUpdateState({ checking: false, hasUpdate: false, latest: null, msg: `检查更新失败：${err}` })
+        const err = res !== null && typeof res === 'object' && typeof res.error === 'string' ? res.error : t('unknownError')
+        setUpdateState({ checking: false, hasUpdate: false, latest: null, msg: t('updateFailed', { error: err }) })
       }
     } catch (err) {
-      setUpdateState({ checking: false, hasUpdate: false, latest: null, msg: '检查更新异常：' + String(err) })
+      setUpdateState({ checking: false, hasUpdate: false, latest: null, msg: t('updateError', { error: String(err) }) })
     }
   }
 
@@ -1538,12 +1735,12 @@ function PetMenu(props) {
       if (res !== null && typeof res === 'object' && res.ok) {
         await refreshPets()
         if (typeof res.imported === 'number') {
-          const parts = [`导入成功 ${res.imported} 个`]
-          if (res.skipped > 0) parts.push(`跳过 ${res.skipped} 个`)
+          const parts = [t('importSuccess', { count: res.imported })]
+          if (res.skipped > 0) parts.push(t('importSkipped', { count: res.skipped }))
           if (res.failed > 0) {
-            parts.push(`失败 ${res.failed} 个`)
+            parts.push(t('importFailed', { count: res.failed }))
             if (Array.isArray(res.errors) && res.errors.length > 0) {
-              parts.push(`详情：${res.errors.join('；')}`)
+              parts.push(t('importDetail', { detail: res.errors.join('；') }))
             }
           }
           const message = parts.join('，')
@@ -1554,20 +1751,20 @@ function PetMenu(props) {
       }
       const errText = res !== null && typeof res === 'object' && typeof res.error === 'string'
         ? res.error
-        : '导入失败'
+        : t('importFail', { error: t('unknownError') })
       console.error('[pet] importPet 失败', errText)
-      window.alert('导入失败：' + errText)
+      window.alert(t('importFail', { error: errText }))
       return errText
     } catch (err) {
       console.error('[pet] importPet 异常', err)
-      window.alert('导入异常：' + String(err))
+      window.alert(t('importError', { error: String(err) }))
       return String(err)
     }
   }
 
   async function openBrowser() {
     if (typeof props.listDirectory !== 'function') {
-      setImportMsg('当前环境不支持目录浏览')
+      setImportMsg(t('noDirSupport'))
       return
     }
     setBrowser({
@@ -1661,47 +1858,47 @@ function PetMenu(props) {
     const path = browser.selected !== null && browser.selected.path ? browser.selected.path : browser.path
     closeBrowser()
     if (path === null) return
-    setImportMsg('导入中…')
+    setImportMsg(t('importing'))
     importFromPath(path).then((err) => {
-      setImportMsg(err === null ? '导入成功' : err)
+      setImportMsg(err === null ? t('importOk') : err)
     })
   }
 
   return React.createElement(
     'div',
     { className: 'dsh-pet-menu' },
-    React.createElement('h4', null, '宠物'),
+    React.createElement('h4', null, t('petTitle')),
     React.createElement(
       'div',
       { className: 'dsh-pet-item' },
-      React.createElement('span', null, s.wake ? '已唤醒' : '已隐藏'),
-      React.createElement('button', { className: 'dsh-pet-btn', onClick: () => setWake(!s.wake) }, s.wake ? '隐藏' : '唤醒'),
+      React.createElement('span', null, s.wake ? t('awake') : t('hidden')),
+      React.createElement('button', { className: 'dsh-pet-btn', onClick: () => setWake(!s.wake) }, s.wake ? t('hideBtn') : t('wakeBtn')),
     ),
     React.createElement(
       'div',
       { className: 'dsh-pet-item' },
-      React.createElement('span', null, '缩放'),
+      React.createElement('span', null, t('scale')),
       React.createElement(ScaleControl),
     ),
     React.createElement(
       'div',
       { className: 'dsh-pet-item' },
-      React.createElement('span', null, '宠物市场'),
+      React.createElement('span', null, t('market')),
       React.createElement('button', {
         className: 'dsh-pet-btn',
         onClick: openPetMarket,
-      }, '打开市场'),
+      }, t('openMarket')),
     ),
     React.createElement(
       'div',
       { className: 'dsh-pet-item' },
-      React.createElement('span', null, '插件版本'),
+      React.createElement('span', null, t('pluginVersion')),
       React.createElement('span', { className: 'dsh-pet-muted' }, pluginVersion !== null ? `v${pluginVersion}` : '…'),
       React.createElement('button', {
         className: 'dsh-pet-btn',
         onClick: checkPluginUpdate,
         disabled: updateState.checking,
-      }, updateState.checking ? '检查中…' : '检查更新'),
+      }, updateState.checking ? t('checking') : t('checkUpdate')),
     ),
     updateState.msg !== null
       ? React.createElement('div', { className: 'dsh-pet-muted', style: { fontSize: 12 } }, updateState.msg)
@@ -1709,20 +1906,20 @@ function PetMenu(props) {
     React.createElement(
       'div',
       { className: 'dsh-pet-item' },
-      React.createElement('span', null, '导入宠物'),
-      React.createElement('button', { className: 'dsh-pet-btn', onClick: openBrowser }, '选择路径…'),
+      React.createElement('span', null, t('importPet')),
+      React.createElement('button', { className: 'dsh-pet-btn', onClick: openBrowser }, t('choosePath')),
     ),
     React.createElement(
       'div',
       { className: 'dsh-pet-muted', style: { fontSize: 12 } },
-      '在画廊下载宠物包后，回到这里用「选择路径…」导入。',
+      t('marketHint'),
     ),
     React.createElement('div', { className: 'dsh-pet-divider' }),
-    React.createElement('h4', null, '选择宠物'),
+    React.createElement('h4', null, t('selectPet')),
     s.pets.length === 0
       ? React.createElement('div', { className: 'dsh-pet-muted' },
           s.petsError !== null ? s.petsError
-            : (s.initError !== null ? s.initError : '宠物库为空，请先导入宠物'))
+            : (s.initError !== null ? s.initError : t('libraryEmpty')))
       : React.createElement(
           'div',
           { className: 'dsh-pet-grid' },
@@ -1747,7 +1944,7 @@ function PetMenu(props) {
             React.createElement(
               'div',
               { className: 'dsh-pet-dialog-header' },
-              React.createElement('h2', { className: 'dsh-pet-dialog-title' }, '选择宠物包目录'),
+              React.createElement('h2', { className: 'dsh-pet-dialog-title' }, t('chooseDirTitle')),
               React.createElement(
                 'div',
                 { className: 'dsh-pet-dialog-nav' },
@@ -1756,8 +1953,8 @@ function PetMenu(props) {
                       className: 'dsh-pet-dialog-path-input',
                       value: browser.pathDraft,
                       autoFocus: true,
-                      'aria-label': '编辑路径',
-                      placeholder: '输入路径后回车跳转',
+                      'aria-label': t('editPath'),
+                      placeholder: t('editPathHint'),
                       onChange: (e) => setBrowser((b) => ({ ...b, pathDraft: e.target.value })),
                       onKeyDown: (e) => {
                         if (e.key === 'Enter') commitEdit()
@@ -1780,8 +1977,8 @@ function PetMenu(props) {
                       ),
                       React.createElement('button', {
                         className: 'dsh-pet-dialog-edit',
-                        title: '编辑路径',
-                        'aria-label': '编辑路径',
+                        title: t('editPath'),
+                        'aria-label': t('editPath'),
                         onClick: startEdit,
                       }, '✎'),
                     ),
@@ -1813,11 +2010,11 @@ function PetMenu(props) {
                       },
                       React.createElement(FolderGlyph, { open: browser.selectedPath === entry.path, selected: browser.selectedPath === entry.path }),
                       React.createElement('span', { className: 'dsh-pet-dialog-row-name' }, entry.name),
-                      entry.hidden ? React.createElement('span', { className: 'dsh-pet-dialog-row-hidden' }, '隐藏') : null,
+                      entry.hidden ? React.createElement('span', { className: 'dsh-pet-dialog-row-hidden' }, t('hidden')) : null,
                       React.createElement(ChevronGlyph, null),
                     )),
                   browser.entries.length === 0
-                    ? React.createElement('div', { className: 'dsh-pet-dialog-empty' }, '空目录')
+                    ? React.createElement('div', { className: 'dsh-pet-dialog-empty' }, t('emptyDir'))
                     : null,
                 ),
                 browser.selected !== null
@@ -1833,18 +2030,18 @@ function PetMenu(props) {
                             { key: entry.path, className: 'dsh-pet-dialog-row', onClick: () => pickRight(entry) },
                             React.createElement(FolderGlyph, { open: false, selected: false }),
                             React.createElement('span', { className: 'dsh-pet-dialog-row-name' }, entry.name),
-                            entry.hidden ? React.createElement('span', { className: 'dsh-pet-dialog-row-hidden' }, '隐藏') : null,
+                            entry.hidden ? React.createElement('span', { className: 'dsh-pet-dialog-row-hidden' }, t('hidden')) : null,
                             React.createElement(ChevronGlyph, null),
                           )),
                         browser.selected.entries.length === 0
-                          ? React.createElement('div', { className: 'dsh-pet-dialog-empty' }, '空目录')
+                          ? React.createElement('div', { className: 'dsh-pet-dialog-empty' }, t('emptyDir'))
                           : null,
                       ),
                     )
                   : null,
               ),
               browser.loading
-                ? React.createElement('div', { className: 'dsh-pet-dialog-loading' }, '加载中…')
+                ? React.createElement('div', { className: 'dsh-pet-dialog-loading' }, t('loading'))
                 : null,
               browser.error !== null
                 ? React.createElement('div', { className: 'dsh-pet-dialog-error' }, browser.error)
@@ -1857,14 +2054,14 @@ function PetMenu(props) {
                 className: 'dsh-pet-dialog-show-hidden' + (browser.showHidden ? ' active' : ''),
                 'aria-pressed': browser.showHidden,
                 onClick: () => setBrowser((b) => ({ ...b, showHidden: !b.showHidden })),
-              }, browser.showHidden ? '✓ 显示隐藏文件' : '显示隐藏文件'),
+              }, browser.showHidden ? '✓ ' + t('showHidden') : t('showHidden')),
               React.createElement('span', { className: 'dsh-pet-dialog-spacer' }),
-              React.createElement('button', { className: 'dsh-pet-dialog-btn secondary', onClick: closeBrowser }, '取消'),
+              React.createElement('button', { className: 'dsh-pet-dialog-btn secondary', onClick: closeBrowser }, t('cancel')),
               React.createElement('button', {
                 className: 'dsh-pet-dialog-btn primary',
                 onClick: chooseBrowserPath,
                 disabled: browser.path === null,
-              }, '导入宠物'),
+              }, t('importPet')),
             ),
           ),
         )
@@ -1878,7 +2075,7 @@ function PetMenu(props) {
 function patchPetNavIcon() {
   if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return () => {}
 
-  const NAV_LABEL = '宠物'
+  const NAV_LABEL = () => t('petTitle')
   const PET_GLYPH = '🐼'
 
   function patchOnce() {
@@ -1888,7 +2085,7 @@ function patchPetNavIcon() {
       const children = Array.from(btn.children)
       if (children.length < 2) continue
       const label = children[children.length - 1]
-      if (label.tagName !== 'SPAN' || label.textContent.trim() !== NAV_LABEL) continue
+      if (label.tagName !== 'SPAN' || label.textContent.trim() !== NAV_LABEL()) continue
       if (!btn.closest('[role="dialog"]')) continue
 
       btn.dataset.dshPetNav = '1'
@@ -1909,10 +2106,28 @@ function patchPetNavIcon() {
 
 // ===== 插件注册 =====
 
-const inject = ['slots', 'workspaces', 'sessions']
+const inject = ['slots', 'workspaces', 'sessions', 'locale']
 
 function apply(ctx) {
   clientCtx = ctx
+  if (ctx.locale && typeof ctx.locale.register === 'function' && typeof ctx.locale.bind === 'function') {
+    clientLocale = (ctx.locale.getSnapshot().active) || 'zh'
+    ctx.effect(() => {
+      const offZh = ctx.locale.register(PET_NS, 'zh', zh)
+      const offEn = ctx.locale.register(PET_NS, 'en', en)
+      const unsub = ctx.locale.subscribe(() => {
+        clientLocale = ctx.locale.getSnapshot().active
+        clientT = ctx.locale.bind(PET_NS)
+        notify()
+      })
+      clientT = ctx.locale.bind(PET_NS)
+      return () => {
+        offZh()
+        offEn()
+        unsub()
+      }
+    }, 'dsh-pet: locale dictionaries')
+  }
   ctx.effect(() => patchPetNavIcon(), 'dsh-pet: 设置页导航图标')
 
   ctx.effect(() => {
@@ -1925,7 +2140,7 @@ function apply(ctx) {
   }, 'dsh-pet: 样式')
 
   ctx.slots.inject('shell.overlay', () => ctx.slots.register(
-    { name: 'shell.overlay', id: 'dsh-pet', order: 0, label: '宠物' },
+    { name: 'shell.overlay', id: 'dsh-pet', order: 0, label: () => t('petTitle') },
     (props) => React.createElement(PetPortal, props),
   ))
 
@@ -1934,7 +2149,7 @@ function apply(ctx) {
       name: 'settings.section',
       id: 'pet',
       order: 30,
-      label: '宠物',
+      label: () => t('petTitle'),
       inject: () => ({
         listDirectory: typeof ctx.workspaces === 'object' && ctx.workspaces !== null
           ? (path) => ctx.workspaces.listDirectory(path)

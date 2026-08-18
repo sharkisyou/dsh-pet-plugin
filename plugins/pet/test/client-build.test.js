@@ -17,6 +17,7 @@ test('lib/client.js 与生成器输出逐字节一致', async () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'))
   const expected = renderClientBundle(
     pkg.name,
+    sourceBody(path.join(SRC, 'i18n.js')),
     sourceBody(path.join(SRC, 'client-ui.js')),
     sourceBody(path.join(SRC, 'animation.js')),
     sourceBody(path.join(SRC, 'multi-session.js')),
@@ -45,7 +46,7 @@ test('client bundle 可作为经典脚本解析并注册工厂', () => {
   const exportsOf = handoff.factory(fakeRequire)
   assert.equal(typeof exportsOf.apply, 'function')
   assert.equal(typeof exportsOf.extractCurrentSessionId, 'function')
-  assert.deepEqual(exportsOf.inject, ['slots', 'workspaces', 'sessions'])
+  assert.deepEqual(exportsOf.inject, ['slots', 'workspaces', 'sessions', 'locale'])
   assert.equal(exportsOf.extractCurrentSessionId({ current: 'session-1' }), 'session-1')
   assert.equal(exportsOf.extractCurrentSessionId({ current: undefined }), null)
 })

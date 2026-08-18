@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-// 把 src/client-ui.js + src/animation.js + src/multi-session.js 组装成 dsh.client 要求的经典脚本：
+// 把 src/i18n.js + src/client-ui.js + src/animation.js + src/multi-session.js 组装成 dsh.client 要求的经典脚本：
 //   window.__ModuleLoader__.load({ id, factory: (require) => { ... } })
 // 浏览器工厂内的 require 由 dsh-client-modules 注入；React 来自平台种子模块。
 
@@ -23,11 +23,12 @@ export function sourceBody(file) {
   return lines.slice(0, cut).join('\n').replace(/\n+$/, '')
 }
 
-export function renderClientBundle(packageName, clientBody, animationBody, multiSessionBody) {
+export function renderClientBundle(packageName, i18nBody, clientBody, animationBody, multiSessionBody) {
   const factory = [
     '\t\tvar module = { exports: {} };',
     '\t\tvar exports = module.exports;',
     "\t\tObject.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });",
+    i18nBody,
     animationBody,
     multiSessionBody,
     clientBody,
@@ -41,10 +42,11 @@ export function renderClientBundle(packageName, clientBody, animationBody, multi
 
 export function buildClientBundle() {
   const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
+  const i18nBody = sourceBody(join(SRC, 'i18n.js'))
   const clientBody = sourceBody(join(SRC, 'client-ui.js'))
   const animationBody = sourceBody(join(SRC, 'animation.js'))
   const multiSessionBody = sourceBody(join(SRC, 'multi-session.js'))
-  const bundle = renderClientBundle(pkg.name, clientBody, animationBody, multiSessionBody)
+  const bundle = renderClientBundle(pkg.name, i18nBody, clientBody, animationBody, multiSessionBody)
   writeFileSync(OUT, bundle)
   return OUT
 }

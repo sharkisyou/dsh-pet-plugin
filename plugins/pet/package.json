@@ -23,6 +23,7 @@
     "lib/client.js",
     "cordis.patch.yml",
     "PUBLISHING.md",
+    "src/i18n.js",
     "src/pet-format.js",
     "src/state-machine.js",
     "src/image-dims.js",
@@ -45,7 +46,8 @@
     "client": {
       "platform": "web",
       "inject": [
-        "@deepseek-ai/dsh-client-runtime"
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-locale"
       ],
       "immediately": true
     }

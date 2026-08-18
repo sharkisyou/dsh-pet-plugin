@@ -52,22 +52,22 @@ function cycleNext(current, list) {
 
 const STATE_PRIORITY = { waiting: 0, failed: 1, ready: 2, working: 3, idle: 4 }
 
-function statusTextFor(state, hostBubble, pendingKind) {
+function statusKeyFor(state, hostKey, hostParams, pendingKind) {
   switch (state) {
     case 'waiting':
-      if (pendingKind === 'approval') return '等待审批'
-      if (pendingKind === 'question') return '等待回答'
-      if (pendingKind === 'plan-review') return '计划审查'
-      return hostBubble || '等待输入'
+      if (pendingKind === 'approval') return { bubbleKey: 'waitingApproval', bubbleParams: null }
+      if (pendingKind === 'question') return { bubbleKey: 'waitingAnswer', bubbleParams: null }
+      if (pendingKind === 'plan-review') return { bubbleKey: 'planReview', bubbleParams: null }
+      return { bubbleKey: hostKey || 'waitingInput', bubbleParams: hostParams || null }
     case 'failed':
-      return '出错'
+      return { bubbleKey: 'failed', bubbleParams: null }
     case 'ready':
-      return '待查看'
+      return { bubbleKey: 'ready', bubbleParams: null }
     case 'working':
-      return hostBubble || '思考中'
+      return { bubbleKey: hostKey || 'thinking', bubbleParams: hostParams || null }
     case 'idle':
     default:
-      return hostBubble || '空闲'
+      return { bubbleKey: hostKey || 'idle', bubbleParams: hostParams || null }
   }
 }
 
@@ -86,7 +86,8 @@ function isTopLevelSession(entry) {
 function mergeSession({ sessionId, hostActivity, summary, currentSession }) {
   const host = hostActivity !== null && typeof hostActivity === 'object' ? hostActivity : null
   let state = host ? host.state : 'idle'
-  let bubble = host ? host.bubble : null
+  let bubbleKey = host ? host.bubbleKey : null
+  let bubbleParams = host ? host.bubbleParams : null
   let pendingKind = host && host.pendingKind ? host.pendingKind : null
   let lastEventAt = host && typeof host.lastEventAt === 'number' ? host.lastEventAt : 0
   let acknowledged = host ? host.acknowledged === true : false
@@ -95,15 +96,24 @@ function mergeSession({ sessionId, hostActivity, summary, currentSession }) {
     if (summary.pendingInteraction) {
       state = 'waiting'
       pendingKind = summary.pendingInteraction
-      bubble = statusTextFor('waiting', null, pendingKind)
+      const keyed = statusKeyFor('waiting', null, null, pendingKind)
+      bubbleKey = keyed.bubbleKey
+      bubbleParams = keyed.bubbleParams
     }
     if (summary.completed === true && state !== 'waiting' && state !== 'failed') {
       state = 'ready'
-      bubble = '待查看'
+      bubbleKey = 'ready'
+      bubbleParams = null
     }
     if (summary.running === true && state !== 'waiting' && state !== 'failed') {
       state = 'working'
-      bubble = host && host.bubble ? host.bubble : '思考中'
+      if (host && host.bubbleKey) {
+        bubbleKey = host.bubbleKey
+        bubbleParams = host.bubbleParams || null
+      } else {
+        bubbleKey = 'thinking'
+        bubbleParams = null
+      }
     }
     if (typeof summary.updatedAt === 'number') {
       lastEventAt = Math.max(lastEventAt, summary.updatedAt)
@@ -112,7 +122,7 @@ function mergeSession({ sessionId, hostActivity, summary, currentSession }) {
 
   const active = state !== 'idle'
   const reminder = !(state === 'failed' && acknowledged && sessionId !== currentSession)
-  return { sessionId, state, bubble, pendingKind, lastEventAt, acknowledged, active, reminder }
+  return { sessionId, state, bubbleKey, bubbleParams, pendingKind, lastEventAt, acknowledged, active, reminder }
 }
 
 function buildTray({ sessions, activities, currentSession }) {

@@ -500,7 +500,8 @@ export function apply(ctx) {
       activities.push({
         sessionId: sid,
         state: result.state,
-        bubble: result.bubble,
+        bubbleKey: result.bubbleKey,
+        bubbleParams: result.bubbleParams,
         lastEventAt: lastEventAt.get(sid) || 0,
         pendingKind: result.state === 'waiting' ? (pendingKinds.get(sid) || null) : null,
         acknowledged: acknowledged.has(sid),
@@ -516,16 +517,25 @@ export function apply(ctx) {
         if (pa !== pb) return pa - pb
         return (b.lastEventAt || 0) - (a.lastEventAt || 0)
       })[0]
-      current = { state: top.state, bubble: top.bubble }
+      current = { state: top.state, bubbleKey: top.bubbleKey, bubbleParams: top.bubbleParams }
     }
-    if (current === null) current = { state: 'idle', bubble: '空闲' }
+    if (current === null) current = { state: 'idle', bubbleKey: 'idle', bubbleParams: null }
     trace('getStatus', {
       currentSession,
       state: current.state,
-      bubble: current.bubble,
-      activities: activities.map((a) => ({ sessionId: a.sessionId, state: a.state, bubble: a.bubble, lastEventAt: a.lastEventAt, acknowledged: a.acknowledged })),
+      bubbleKey: current.bubbleKey,
+      bubbleParams: current.bubbleParams,
+      activities: activities.map((a) => ({ sessionId: a.sessionId, state: a.state, bubbleKey: a.bubbleKey, bubbleParams: a.bubbleParams, lastEventAt: a.lastEventAt, acknowledged: a.acknowledged })),
     })
-    return { ok: true, state: current.state, bubble: current.bubble, activities, seen: { ...eventCounters }, currentSession }
+    return {
+      ok: true,
+      state: current.state,
+      bubbleKey: current.bubbleKey,
+      bubbleParams: current.bubbleParams,
+      activities,
+      seen: { ...eventCounters },
+      currentSession,
+    }
   }
 
   async function setCurrentSession(args) {

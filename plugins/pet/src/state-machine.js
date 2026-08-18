@@ -15,28 +15,30 @@ function createPetStateMachine() {
 
   function compute(ts) {
     if (failedAt !== null) {
-      return { state: STATE.failed, bubble: '出错' }
+      return { state: STATE.failed, bubbleKey: 'failed', bubbleParams: null }
     }
     if (approvals > 0) {
-      return { state: STATE.waiting, bubble: '等待审批' }
+      return { state: STATE.waiting, bubbleKey: 'waitingApproval', bubbleParams: null }
     }
     if (tool !== null && tool.isQuestion) {
-      return { state: STATE.waiting, bubble: '等待回答' }
+      return { state: STATE.waiting, bubbleKey: 'waitingAnswer', bubbleParams: null }
     }
     // 子代理优先于父会话的工具执行：前台子代理期间父会话自身就在
     // 执行 `subagent` 工具，若按工具优先则整个子代理周期都会显示
     // 「执行工具 subagent」而不是「子代理工作中」。
     if (subagents > 0) {
-      return { state: STATE.working, bubble: '子代理工作中' }
+      return { state: STATE.working, bubbleKey: 'subagentWorking', bubbleParams: null }
     }
     if (agentRunning || (tool !== null && !tool.isQuestion)) {
-      if (tool !== null && !tool.isQuestion) return { state: STATE.working, bubble: `执行工具 ${tool.name}` }
-      return { state: STATE.working, bubble: '思考中' }
+      if (tool !== null && !tool.isQuestion) {
+        return { state: STATE.working, bubbleKey: 'executingTool', bubbleParams: { name: tool.name } }
+      }
+      return { state: STATE.working, bubbleKey: 'thinking', bubbleParams: null }
     }
     if (idleSince !== null && ts - idleSince < REPLY_BUBBLE_MS) {
-      return { state: STATE.idle, bubble: '等待回复' }
+      return { state: STATE.idle, bubbleKey: 'awaitingReply', bubbleParams: null }
     }
-    return { state: STATE.idle, bubble: '空闲' }
+    return { state: STATE.idle, bubbleKey: 'idle', bubbleParams: null }
   }
 
   function enterIdle(ts) {
