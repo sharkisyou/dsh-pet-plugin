@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module'
+import { createReadStream } from 'node:fs'
 import { copyFile, mkdir, open, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -801,7 +802,7 @@ export function apply(ctx) {
       const result = {
         ok: true,
         pet: parsed.pet,
-        spriteDataUrl: `data:${spriteMime(spriteName)};base64,${bytes.toString('base64')}`,
+        spriteUrl: `/pet/sprite/${id}`,
         atlas: { rows: atlasRows },
       }
       spriteCache.set(id, result)
@@ -852,6 +853,53 @@ export function apply(ctx) {
         sendJson(res, 400, { ok: false, error: '非法请求路径' })
         return
       }
+      // 图集静态文件：/pet/sprite/<id> —— 浏览器按图片 URL 流式加载，
+      // 避免 getPet 把整张图集 base64 塞进 JSON 导致客户端解析极慢。
+      const SPRITE_PREFIX = '/pet/sprite/'
+      if (pathname.startsWith(SPRITE_PREFIX)) {
+        if (req.method !== 'GET') {
+          sendJson(res, 405, { ok: false, error: '仅支持 GET' })
+          return
+        }
+        const spriteId = safeLibraryId(decodeURIComponent(pathname.slice(SPRITE_PREFIX.length)))
+        if (spriteId === null) {
+          sendJson(res, 400, { ok: false, error: '非法宠物 id' })
+          return
+        }
+        try {
+          await ensureInit()
+          const json = await readJson(joinPath(petDir(spriteId), 'pet.json'))
+          const rawSprite = typeof json.spritesheetPath === 'string' ? json.spritesheetPath : 'spritesheet.png'
+          const spriteName = safeSpriteName(rawSprite)
+          if (spriteName === null) {
+            sendJson(res, 400, { ok: false, error: '非法图集路径' })
+            return
+          }
+          const spritePath = joinPath(petDir(spriteId), spriteName)
+          if (!(await pathExists(spritePath))) {
+            sendJson(res, 404, { ok: false, error: '图集缺失' })
+            return
+          }
+          const info = await stat(spritePath)
+          res.writeHead(200, {
+            'content-type': spriteMime(spriteName),
+            'cache-control': 'public, max-age=3600',
+            'content-length': String(info.size),
+          })
+          await new Promise((resolve, reject) => {
+            const stream = createReadStream(spritePath)
+            stream.on('error', reject)
+            stream.on('end', resolve)
+            stream.pipe(res)
+          })
+        } catch (error) {
+          console.error('[pet] sprite 路由异常', errorText(error))
+          if (!res.headersSent) sendJson(res, 500, { ok: false, error: errorText(error) })
+          else res.end()
+        }
+        return
+      }
+
       const method = rpcMethodOf(pathname)
       if (method === null || handlers[method] === undefined) {
         sendJson(res, 404, { ok: false, error: `未知方法: ${pathname}` })

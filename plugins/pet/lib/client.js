@@ -475,7 +475,7 @@ async function selectPet(id) {
     }
     store.petId = id
     store.pet = res.pet
-    store.spriteUrl = res.spriteDataUrl
+    store.spriteUrl = res.spriteUrl
     store.atlasRows = res.atlas !== null && typeof res.atlas === 'object' && res.atlas.rows > 0
       ? res.atlas.rows
       : 9
@@ -1153,7 +1153,7 @@ function PetPreviewCard({ pet, selected, onSelect, onDelete }) {
     petCall('getPet', { id: pet.id }).then((res) => {
       if (!alive || res === null || typeof res !== 'object' || res.ok !== true) return
       setData({
-        spriteUrl: res.spriteDataUrl,
+        spriteUrl: res.spriteUrl,
         pet: res.pet,
         atlasRows: res.atlas !== null && typeof res.atlas === 'object' && res.atlas.rows > 0
           ? res.atlas.rows
@@ -1229,7 +1229,7 @@ function PetPreviewCard({ pet, selected, onSelect, onDelete }) {
       React.createElement(
         'div',
         { className: 'dsh-pet-card-canvas' },
-        React.createElement('img', { className: 'dsh-pet-card-frame', src: data.spriteUrl, style: frameStyle, alt: '' }),
+        React.createElement('img', { className: 'dsh-pet-card-frame', src: data.spriteUrl, style: frameStyle, alt: '', decoding: 'async' }),
       ),
     ),
     React.createElement('div', { className: 'dsh-pet-card-name' }, pet.displayName),
