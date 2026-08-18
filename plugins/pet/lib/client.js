@@ -274,25 +274,77 @@ const PET_CSS = `
 .dsh-pet-muted { color: var(--dsw-alias-label-tertiary, #999); font-size: 12px; }
 .dsh-pet-dialog-mask { position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,.5);
   display: flex; align-items: center; justify-content: center; }
-.dsh-pet-dialog { background: var(--dsw-alias-bg-layer-2, #1e1e1e); color: var(--dsw-alias-label-primary, #eee);
-  border: 1px solid var(--dsw-alias-border-l2, rgba(255,255,255,.1)); border-radius: 16px;
-  width: min(560px, calc(100vw - 32px)); max-height: 70vh; display: flex; flex-direction: column;
-  padding: 18px; gap: 12px; box-shadow: 0 18px 50px rgba(0,0,0,.45); }
-.dsh-pet-dialog-title { font-size: 15px; font-weight: 600; }
-.dsh-pet-dialog-path { font-size: 12px; color: var(--dsw-alias-label-tertiary, #aaa); word-break: break-all;
-  background: var(--dsw-alias-bg-layer-3, rgba(255,255,255,.04)); border-radius: 8px; padding: 6px 10px; }
-.dsh-pet-dialog-error { color: #f66; font-size: 12px; }
-.dsh-pet-dialog-crumbs { display: flex; flex-wrap: wrap; gap: 4px; font-size: 12px; }
-.dsh-pet-dialog-crumb { background: none; border: none; color: var(--dsw-alias-brand-primary, #8ab4f8);
-  cursor: pointer; padding: 3px 6px; border-radius: 6px; font-size: 12px; }
-.dsh-pet-dialog-crumb:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(255,255,255,.08)); }
-.dsh-pet-dialog-list { overflow-y: auto; min-height: 160px; max-height: 320px;
-  border: 1px solid var(--dsw-alias-border-l2, rgba(255,255,255,.1)); border-radius: 10px; padding: 4px; }
-.dsh-pet-dialog-row { display: block; width: 100%; text-align: left; background: none; border: none;
-  color: var(--dsw-alias-label-primary, #eee); padding: 7px 10px; border-radius: 8px; cursor: pointer;
-  font-size: 13px; transition: background .12s ease; }
-.dsh-pet-dialog-row:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(255,255,255,.08)); }
-.dsh-pet-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.dsh-pet-dialog { background: var(--dsw-alias-bg-layer-2, #fff); color: var(--dsw-alias-label-primary, #1f1f1f);
+  border: 1px solid var(--dsw-alias-border-l3, rgba(0,0,0,.1)); border-radius: 12px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.35);
+  width: min(680px, calc(100vw - 32px)); height: min(500px, calc(100dvh - 32px));
+  display: flex; flex-direction: column; padding: 0; gap: 0; overflow: hidden; }
+.dsh-pet-dialog-header { border-bottom: 1px solid var(--dsw-alias-border-l3, rgba(0,0,0,.1));
+  flex-direction: column; flex: none; gap: 8px; padding: 16px 14px 8px 24px; display: flex; }
+.dsh-pet-dialog-title { min-height: 28px; color: var(--dsw-alias-label-primary, #1f1f1f); margin: 0;
+  font-size: 16px; font-weight: 600; line-height: 24px; display: flex; align-items: flex-end; }
+.dsh-pet-dialog-nav { box-sizing: border-box; border: 1px solid transparent; border-radius: 8px;
+  align-items: center; gap: 4px; min-height: 24px; padding: 0 8px; display: flex; }
+.dsh-pet-dialog-nav:focus-within, .dsh-pet-dialog-nav:hover { border-color: var(--dsw-alias-border-l2, rgba(0,0,0,.15)); }
+.dsh-pet-dialog-crumb-trail { align-items: center; gap: 4px; min-width: 0; display: flex; overflow-x: auto; }
+.dsh-pet-dialog-crumb { color: var(--dsw-alias-label-tertiary, #888); cursor: pointer; background: none;
+  border: none; padding: 0; font-size: 13px; font-weight: 500; line-height: 20px; white-space: nowrap; }
+.dsh-pet-dialog-crumb:hover { color: var(--dsw-alias-label-primary, #1f1f1f); }
+.dsh-pet-dialog-crumb.current { color: var(--dsw-alias-label-primary, #1f1f1f); font-weight: 700; }
+.dsh-pet-dialog-nav-sep { color: var(--dsw-alias-label-tertiary, #888); flex: none; margin: 0 2px; font-size: 12px; }
+.dsh-pet-dialog-edit { cursor: text; background: none; border: none; outline: none; flex: 1 0 34px;
+  justify-content: flex-end; align-items: center; min-width: 34px; height: 22px; padding: 0; display: flex;
+  color: var(--dsw-alias-label-tertiary, #888); font-size: 14px; }
+.dsh-pet-dialog-edit:hover { color: var(--dsw-alias-label-primary, #1f1f1f); }
+.dsh-pet-dialog-path-input { box-sizing: border-box; min-width: 0; height: 22px; flex: 1 1 0;
+  color: var(--dsw-alias-label-primary, #1f1f1f); background: none; border: none; outline: none;
+  padding: 0; font-size: 13px; line-height: 20px; }
+.dsh-pet-dialog-content { flex-direction: column; flex: 1 1 0; min-height: 0;
+  padding: 16px 16px 16px 24px; display: flex; position: relative; }
+.dsh-pet-dialog-miller { align-items: stretch; gap: 12px; min-height: 0; flex: 1 1 0; display: flex;
+  overflow-x: auto; }
+.dsh-pet-dialog-column { flex-direction: column; flex: 1 1 0; gap: 2px; min-width: 256px;
+  padding-right: 8px; display: flex; overflow-y: auto; }
+.dsh-pet-dialog-divider { background: var(--dsw-alias-border-l3, rgba(0,0,0,.1)); flex: none; width: 1px; }
+.dsh-pet-dialog-row { text-align: left; cursor: pointer; background: none; border: none; border-radius: 6px;
+  flex: none; align-items: center; gap: 4px; width: 100%; height: 28px; padding: 4px; display: flex;
+  color: var(--dsw-alias-label-primary, #1f1f1f); font-size: 13px; font-weight: 500; }
+.dsh-pet-dialog-row:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,.06)); }
+.dsh-pet-dialog-row.selected { background: var(--dsw-alias-interactive-bg-active, rgba(24,144,255,.14)); }
+.dsh-pet-dialog-row-icon { color: var(--dsw-alias-label-secondary, #666); flex: none; }
+.dsh-pet-dialog-row-icon.selected { color: var(--dsw-alias-button-info-fill, #1890ff); }
+.dsh-pet-dialog-row-name { text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1 1 0;
+  overflow: hidden; }
+.dsh-pet-dialog-row-chevron { color: var(--dsw-alias-label-tertiary, #888); flex: none; }
+.dsh-pet-dialog-row-hidden { color: var(--dsw-alias-label-tertiary, #888); font-size: 11px; flex: none; }
+.dsh-pet-dialog-empty { color: var(--dsw-alias-label-tertiary, #888); text-align: center; padding: 24px 0;
+  font-size: 13px; }
+.dsh-pet-dialog-status, .dsh-pet-dialog-error { padding: 4px 120px 4px 4px; font-size: 12px; line-height: 18px; }
+.dsh-pet-dialog-status { color: var(--dsw-alias-label-secondary, #666); }
+.dsh-pet-dialog-error { color: var(--dsw-alias-state-error-primary, #f66); }
+.dsh-pet-dialog-loading { background: var(--dsw-alias-bg-layer-2, #fff); padding: 2px 8px; position: absolute;
+  bottom: 8px; right: 16px; font-size: 12px; color: var(--dsw-alias-label-secondary, #666); }
+.dsh-pet-dialog-create { display: flex; align-items: center; gap: 8px; padding: 8px 0 0; }
+.dsh-pet-dialog-create-input { flex: 1; border: 1px solid var(--dsw-alias-border-l2, rgba(0,0,0,.15));
+  border-radius: 6px; padding: 6px 10px; font-size: 13px; color: var(--dsw-alias-label-primary, #1f1f1f);
+  background: var(--dsw-alias-bg-layer-3, rgba(0,0,0,.03)); outline: none; }
+.dsh-pet-dialog-create-input:focus { border-color: var(--dsw-alias-button-info-fill, #1890ff); }
+.dsh-pet-dialog-footer { border-top: 1px solid var(--dsw-alias-border-l3, rgba(0,0,0,.1)); flex-wrap: wrap;
+  flex: none; align-items: center; gap: 8px; padding: 16px 24px; display: flex; }
+.dsh-pet-dialog-spacer { flex: 1 1 0; }
+.dsh-pet-dialog-show-hidden { color: var(--dsw-alias-label-secondary, #666); cursor: pointer; white-space: nowrap;
+  background: none; border: none; align-items: center; gap: 4px; padding: 0; font-size: 13px; font-weight: 500;
+  line-height: 20px; display: inline-flex; }
+.dsh-pet-dialog-show-hidden:hover, .dsh-pet-dialog-show-hidden.active { color: var(--dsw-alias-label-primary, #1f1f1f); }
+.dsh-pet-dialog-btn { border-radius: 6px; padding: 7px 16px; font-size: 13px; font-weight: 500; cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, opacity .15s ease; }
+.dsh-pet-dialog-btn.secondary { background: var(--dsw-alias-bg-module-platform, rgba(128,128,128,.08));
+  color: var(--dsw-alias-label-primary, #1f1f1f); border: 1px solid var(--dsw-alias-border-l2, rgba(0,0,0,.15)); }
+.dsh-pet-dialog-btn.secondary:hover { background: var(--dsw-alias-interactive-bg-hover, rgba(0,0,0,.06)); }
+.dsh-pet-dialog-btn.primary { background: var(--dsw-alias-button-primary-fill, #000);
+  color: var(--dsw-alias-label-inverse, #fff); border: 1px solid transparent; }
+.dsh-pet-dialog-btn.primary:hover { filter: brightness(1.12); }
+.dsh-pet-dialog-btn:disabled { opacity: .45; cursor: not-allowed; }
 .dsh-pet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 10px; }
 .dsh-pet-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px;
   padding: 10px 8px 8px; border-radius: 12px; cursor: pointer; user-select: none;
@@ -313,7 +365,7 @@ const PET_CSS = `
   font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-primary, #eee); }
 .dsh-pet-divider { height: 1px; background: var(--dsw-alias-border-l1, rgba(255,255,255,.08));
   margin: 10px 2px 4px; }
-.dsh-pet-card-delete { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px;
+.dsh-pet-card-delete { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; z-index: 2;
   display: inline-flex; align-items: center; justify-content: center; padding: 0;
   border-radius: 50%; background: rgba(0,0,0,.45); border: 1px solid rgba(255,255,255,.12);
   color: rgba(255,255,255,.65); font-size: 13px; line-height: 1; cursor: pointer;
@@ -1229,7 +1281,13 @@ function PetPreviewCard({ pet, selected, onSelect, onDelete }) {
       React.createElement(
         'div',
         { className: 'dsh-pet-card-canvas' },
-        React.createElement('img', { className: 'dsh-pet-card-frame', src: data.spriteUrl, style: frameStyle, alt: '', decoding: 'async' }),
+        React.createElement('img', {
+          className: 'dsh-pet-card-frame',
+          src: data.spriteUrl,
+          style: frameStyle,
+          alt: '',
+          decoding: 'async',
+        }),
       ),
     ),
     React.createElement('div', { className: 'dsh-pet-card-name' }, pet.displayName),
@@ -1383,6 +1441,37 @@ function ScaleControl() {
   )
 }
 
+// ===== 目录选择器小图标（原生风格：灰线文件夹 + chevron） =====
+
+// 把面包屑里的用户主目录替换成「主目录」标签，只保留主目录开始的相对路径
+function displayCrumbs(crumbs, home) {
+  if (!home || !Array.isArray(crumbs)) return crumbs || []
+  const idx = crumbs.findIndex((c) => c !== null && typeof c === 'object' && c.path === home)
+  if (idx < 0) return crumbs
+  return [{ name: '主目录', path: home, hidden: false }, ...crumbs.slice(idx + 1)]
+}
+
+function FolderGlyph({ open, selected }) {
+  return React.createElement('svg', {
+    width: 16, height: 16, viewBox: '0 0 16 16',
+    className: 'dsh-pet-dialog-row-icon' + (selected ? ' selected' : ''),
+    fill: 'currentColor', 'aria-hidden': true,
+  },
+    React.createElement('path', { d: 'M1.5 2.5h4.2l1.6 2.1h7.2a.5.5 0 0 1 .5.5v7.4a.5.5 0 0 1-.5.5H1.5a.5.5 0 0 1-.5-.5V3a.5.5 0 0 1 .5-.5z' }),
+  )
+}
+
+function ChevronGlyph() {
+  return React.createElement('svg', {
+    width: 12, height: 12, viewBox: '0 0 16 16',
+    className: 'dsh-pet-dialog-row-chevron',
+    fill: 'none', stroke: 'currentColor', strokeWidth: 1.6,
+    strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
+  },
+    React.createElement('path', { d: 'M6 4l4 4-4 4' }),
+  )
+}
+
 // ===== 宠物设置面板 =====
 
 function PetMenu(props) {
@@ -1393,8 +1482,14 @@ function PetMenu(props) {
     path: null,
     entries: [],
     crumbs: [],
+    home: null,
     loading: false,
     error: null,
+    showHidden: true,
+    selected: null,
+    selectedPath: null,
+    editing: false,
+    pathDraft: '',
   })
 
   React.useEffect(() => {
@@ -1450,31 +1545,95 @@ function PetMenu(props) {
       setImportMsg('当前环境不支持目录浏览')
       return
     }
-    setBrowser({ open: true, path: null, entries: [], crumbs: [], loading: true, error: null })
+    setBrowser({
+      open: true, path: null, entries: [], crumbs: [], home: null, loading: true, error: null,
+      showHidden: true, selected: null, selectedPath: null, editing: false, pathDraft: '',
+    })
     try {
       const listing = await props.listDirectory()
-      setBrowser({ open: true, path: listing.path, entries: listing.entries, crumbs: listing.crumbs, loading: false, error: null })
+      setBrowser({
+        open: true, path: listing.path, entries: listing.entries, crumbs: listing.crumbs, home: listing.home, loading: false, error: null,
+        showHidden: true, selected: null, selectedPath: null, editing: false, pathDraft: '',
+      })
     } catch (err) {
-      setBrowser({ open: true, path: null, entries: [], crumbs: [], loading: false, error: String(err && err.message ? err.message : err) })
+      setBrowser({
+        open: true, path: null, entries: [], crumbs: [], home: null, loading: false,
+        error: String(err && err.message ? err.message : err),
+        showHidden: true, selected: null, selectedPath: null, editing: false, pathDraft: '',
+      })
     }
   }
 
   async function navigateBrowser(nextPath) {
-    setBrowser((b) => ({ ...b, loading: true, error: null }))
+    setBrowser((b) => ({ ...b, loading: true, error: null, editing: false }))
     try {
       const listing = await props.listDirectory(nextPath)
-      setBrowser({ open: true, path: listing.path, entries: listing.entries, crumbs: listing.crumbs, loading: false, error: null })
+      setBrowser((b) => ({
+        ...b,
+        open: true,
+        path: listing.path,
+        entries: listing.entries,
+        crumbs: listing.crumbs,
+        home: listing.home,
+        loading: false,
+        error: null,
+        selected: null,
+        selectedPath: null,
+        editing: false,
+        pathDraft: '',
+      }))
     } catch (err) {
       setBrowser((b) => ({ ...b, loading: false, error: String(err && err.message ? err.message : err) }))
     }
   }
 
+  // Miller 左栏：选中一个文件夹，加载其子项到右栏
+  async function selectEntry(entry) {
+    if (typeof props.listDirectory !== 'function') return
+    setBrowser((b) => ({ ...b, loading: true, error: null }))
+    try {
+      const listing = await props.listDirectory(entry.path)
+      setBrowser((b) => ({
+        ...b,
+        loading: false,
+        selectedPath: entry.path,
+        selected: { path: listing.path, entries: listing.entries, crumbs: listing.crumbs, home: listing.home },
+      }))
+    } catch (err) {
+      setBrowser((b) => ({ ...b, loading: false, error: String(err && err.message ? err.message : err), selected: null, selectedPath: null }))
+    }
+  }
+
+  // Miller 右栏：点某个子项 -> 进入该目录（变成新的左栏层级）
+  function pickRight(entry) {
+    navigateBrowser(entry.path)
+  }
+
+  function startEdit() {
+    const base = browser.path || ''
+    setBrowser((b) => ({ ...b, editing: true, pathDraft: base + (base.endsWith('/') ? '' : '/') }))
+  }
+
+  function cancelEdit() {
+    setBrowser((b) => ({ ...b, editing: false, pathDraft: '' }))
+  }
+
+  function commitEdit() {
+    const draft = (browser.pathDraft || '').trim()
+    if (draft === '') return
+    navigateBrowser(draft)
+  }
+
   function closeBrowser() {
-    setBrowser({ open: false, path: null, entries: [], crumbs: [], loading: false, error: null })
+    setBrowser({
+      open: false, path: null, entries: [], crumbs: [], home: null, loading: false, error: null,
+      showHidden: true, selected: null, selectedPath: null, editing: false, pathDraft: '',
+    })
   }
 
   function chooseBrowserPath() {
-    const path = browser.path
+    // Open 采用选中的文件夹，没有选中则回退到当前层级
+    const path = browser.selected !== null && browser.selected.path ? browser.selected.path : browser.path
     closeBrowser()
     if (path === null) return
     setImportMsg('导入中…')
@@ -1546,34 +1705,127 @@ function PetMenu(props) {
           React.createElement(
             'div',
             { className: 'dsh-pet-dialog', onClick: (e) => e.stopPropagation() },
-            React.createElement('div', { className: 'dsh-pet-dialog-title' }, '选择宠物包目录'),
-            React.createElement('div', { className: 'dsh-pet-dialog-path' }, browser.path || '加载中…'),
-            browser.error !== null
-              ? React.createElement('div', { className: 'dsh-pet-dialog-error' }, browser.error)
-              : null,
             React.createElement(
               'div',
-              { className: 'dsh-pet-dialog-crumbs' },
-              browser.crumbs.map((c) => React.createElement(
-                'button',
-                { key: c.path, className: 'dsh-pet-dialog-crumb', onClick: () => navigateBrowser(c.path) },
-                c.name,
-              )),
+              { className: 'dsh-pet-dialog-header' },
+              React.createElement('h2', { className: 'dsh-pet-dialog-title' }, '选择宠物包目录'),
+              React.createElement(
+                'div',
+                { className: 'dsh-pet-dialog-nav' },
+                browser.editing
+                  ? React.createElement('input', {
+                      className: 'dsh-pet-dialog-path-input',
+                      value: browser.pathDraft,
+                      autoFocus: true,
+                      'aria-label': '编辑路径',
+                      placeholder: '输入路径后回车跳转',
+                      onChange: (e) => setBrowser((b) => ({ ...b, pathDraft: e.target.value })),
+                      onKeyDown: (e) => {
+                        if (e.key === 'Enter') commitEdit()
+                        if (e.key === 'Escape') cancelEdit()
+                      },
+                    })
+                  : React.createElement(React.Fragment, null,
+                      React.createElement(
+                        'div',
+                        { className: 'dsh-pet-dialog-crumb-trail' },
+                        displayCrumbs(browser.crumbs, browser.home).map((c, i, arr) => React.createElement(
+                          React.Fragment,
+                          { key: c.path },
+                          i > 0 ? React.createElement('span', { className: 'dsh-pet-dialog-nav-sep' }, '›') : null,
+                          React.createElement('button', {
+                            className: 'dsh-pet-dialog-crumb' + (i === arr.length - 1 ? ' current' : ''),
+                            onClick: () => navigateBrowser(c.path),
+                          }, c.name),
+                        )),
+                      ),
+                      React.createElement('button', {
+                        className: 'dsh-pet-dialog-edit',
+                        title: '编辑路径',
+                        'aria-label': '编辑路径',
+                        onClick: startEdit,
+                      }, '✎'),
+                    ),
+              ),
             ),
             React.createElement(
               'div',
-              { className: 'dsh-pet-dialog-list' },
-              browser.entries.map((entry) => React.createElement(
-                'button',
-                { key: entry.path, className: 'dsh-pet-dialog-row', onClick: () => navigateBrowser(entry.path) },
-                entry.name,
-              )),
+              { className: 'dsh-pet-dialog-content' },
+              React.createElement(
+                'div',
+                { className: 'dsh-pet-dialog-miller' },
+                React.createElement(
+                  'div',
+                  { className: 'dsh-pet-dialog-column' },
+                  browser.entries
+                    .filter((entry) => browser.showHidden || !entry.hidden)
+                    .map((entry) => React.createElement(
+                      'button',
+                      {
+                        key: entry.path,
+                        className: 'dsh-pet-dialog-row' + (browser.selectedPath === entry.path ? ' selected' : ''),
+                        onClick: () => {
+                          if (browser.selectedPath === entry.path) {
+                            setBrowser((b) => ({ ...b, selected: null, selectedPath: null }))
+                          } else {
+                            selectEntry(entry)
+                          }
+                        },
+                      },
+                      React.createElement(FolderGlyph, { open: browser.selectedPath === entry.path, selected: browser.selectedPath === entry.path }),
+                      React.createElement('span', { className: 'dsh-pet-dialog-row-name' }, entry.name),
+                      entry.hidden ? React.createElement('span', { className: 'dsh-pet-dialog-row-hidden' }, '隐藏') : null,
+                      React.createElement(ChevronGlyph, null),
+                    )),
+                  browser.entries.length === 0
+                    ? React.createElement('div', { className: 'dsh-pet-dialog-empty' }, '空目录')
+                    : null,
+                ),
+                browser.selected !== null
+                  ? React.createElement(React.Fragment, null,
+                      React.createElement('span', { className: 'dsh-pet-dialog-divider' }),
+                      React.createElement(
+                        'div',
+                        { className: 'dsh-pet-dialog-column' },
+                        browser.selected.entries
+                          .filter((entry) => browser.showHidden || !entry.hidden)
+                          .map((entry) => React.createElement(
+                            'button',
+                            { key: entry.path, className: 'dsh-pet-dialog-row', onClick: () => pickRight(entry) },
+                            React.createElement(FolderGlyph, { open: false, selected: false }),
+                            React.createElement('span', { className: 'dsh-pet-dialog-row-name' }, entry.name),
+                            entry.hidden ? React.createElement('span', { className: 'dsh-pet-dialog-row-hidden' }, '隐藏') : null,
+                            React.createElement(ChevronGlyph, null),
+                          )),
+                        browser.selected.entries.length === 0
+                          ? React.createElement('div', { className: 'dsh-pet-dialog-empty' }, '空目录')
+                          : null,
+                      ),
+                    )
+                  : null,
+              ),
+              browser.loading
+                ? React.createElement('div', { className: 'dsh-pet-dialog-loading' }, '加载中…')
+                : null,
+              browser.error !== null
+                ? React.createElement('div', { className: 'dsh-pet-dialog-error' }, browser.error)
+                : null,
             ),
             React.createElement(
               'div',
-              { className: 'dsh-pet-dialog-actions' },
-              React.createElement('button', { className: 'dsh-pet-btn', onClick: closeBrowser }, '取消'),
-              React.createElement('button', { className: 'dsh-pet-btn', onClick: chooseBrowserPath, disabled: browser.path === null }, '选择此目录'),
+              { className: 'dsh-pet-dialog-footer' },
+              React.createElement('button', {
+                className: 'dsh-pet-dialog-show-hidden' + (browser.showHidden ? ' active' : ''),
+                'aria-pressed': browser.showHidden,
+                onClick: () => setBrowser((b) => ({ ...b, showHidden: !b.showHidden })),
+              }, browser.showHidden ? '✓ 显示隐藏文件' : '显示隐藏文件'),
+              React.createElement('span', { className: 'dsh-pet-dialog-spacer' }),
+              React.createElement('button', { className: 'dsh-pet-dialog-btn secondary', onClick: closeBrowser }, '取消'),
+              React.createElement('button', {
+                className: 'dsh-pet-dialog-btn primary',
+                onClick: chooseBrowserPath,
+                disabled: browser.path === null,
+              }, '导入宠物'),
             ),
           ),
         )
