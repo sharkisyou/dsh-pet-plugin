@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module'
-import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, open, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 const require = createRequire(import.meta.url)
@@ -65,6 +65,19 @@ async function readText(path) {
 
 async function readJson(path) {
   return JSON.parse(await readText(path))
+}
+
+// 只读图集头部即可拿到尺寸（PNG/WebP 宽高都在文件头 ~30 字节内），
+// 避免为校验把整张图集（最大 25MB）读进内存。
+async function readSpriteHeader(path) {
+  const handle = await open(path, 'r')
+  try {
+    const buf = Buffer.alloc(64)
+    const { bytesRead } = await handle.read(buf, 0, buf.length, 0)
+    return buf.subarray(0, bytesRead)
+  } finally {
+    await handle.close()
+  }
 }
 
 async function writeJson(path, value) {
@@ -675,21 +688,33 @@ export function apply(ctx) {
             return { ok: false, error: '路径不可读' }
           }
           const summary = { imported: 0, skipped: 0, failed: 0, errors: [] }
-          for (const child of childEntries) {
-            if (!child.isDirectory()) continue
-            const childPath = joinPath(srcBase, child.name)
-            if (!(await pathExists(joinPath(childPath, 'pet.json')))) continue
-            const childResult = await importPet({ path: childPath })
-            console.log('[pet] 批量导入子目录', child.name, childResult)
-            if (childResult.ok) {
-              summary.imported++
-            } else if (typeof childResult.error === 'string' && childResult.error.includes('同名宠物已存在')) {
-              summary.skipped++
-            } else {
-              summary.failed++
-              summary.errors.push(`${child.name}: ${childResult.error}`)
+          const children = childEntries.filter((child) => child.isDirectory())
+          // 批量导入改为有限并发（串行逐个导入在宠物多/图集大时很慢）。
+          // 并发数取小值，避免同时复制过多大文件把磁盘 IO 打满。
+          const CONCURRENCY = 3
+          let cursor = 0
+          async function worker() {
+            while (true) {
+              const idx = cursor++
+              if (idx >= children.length) return
+              const child = children[idx]
+              const childPath = joinPath(srcBase, child.name)
+              if (!(await pathExists(joinPath(childPath, 'pet.json')))) continue
+              const childResult = await importPet({ path: childPath })
+              console.log('[pet] 批量导入子目录', child.name, childResult)
+              if (childResult.ok) {
+                summary.imported++
+              } else if (typeof childResult.error === 'string' && childResult.error.includes('同名宠物已存在')) {
+                summary.skipped++
+              } else {
+                summary.failed++
+                summary.errors.push(`${child.name}: ${childResult.error}`)
+              }
             }
           }
+          await Promise.all(
+            Array.from({ length: Math.min(CONCURRENCY, children.length) }, () => worker()),
+          )
           if (summary.imported === 0 && summary.skipped === 0 && summary.failed === 0) {
             return { ok: false, error: '所选目录下没有找到宠物包' }
           }
@@ -718,9 +743,9 @@ export function apply(ctx) {
       }
       const spriteInfo = await stat(spritePath)
       if (spriteInfo.size > SPRITE_MAX) return { ok: false, error: '图集超过 25MB 上限' }
-      const bytes = await readFile(spritePath)
-      if (bytes.length > SPRITE_MAX) return { ok: false, error: '图集超过 25MB 上限' }
-      const dims = imageDims(bytes)
+      // 只读头部即可解析宽高，不再把整张图集读进内存（图集最大 25MB）。
+      const header = await readSpriteHeader(spritePath)
+      const dims = header.length >= 24 ? imageDims(header) : null
       if (dims === null) return { ok: false, error: '图集不是支持的图片格式（PNG/WebP）' }
       if (dims.width % CELL_W !== 0 || dims.height % CELL_H !== 0 || dims.width / CELL_W !== 8) {
         return { ok: false, error: `图集尺寸不支持: ${dims.width}x${dims.height}` }
@@ -729,10 +754,13 @@ export function apply(ctx) {
       const parsed = parsePetJson(JSON.stringify(json), atlasRows)
       if (!parsed.ok) return { ok: false, error: parsed.errors.join('; ') }
 
-      // 导入 = 把 Codex 包目录复制到 dsh/pets/<id>（不再序列化为扁平 JSON）。
+      // 导入 = 只复制运行时必需的 pet.json 与图集到 dsh/pets/<id>，
+      // 不再整目录复制（避免把预览图、文档、.git 等无关大文件一起拷走）。
       const destDir = petDir(id)
       await rm(destDir, { recursive: true, force: true })
-      await cp(srcBase, destDir, { recursive: true, force: false, errorOnExist: true })
+      await mkdir(destDir, { recursive: true })
+      await copyFile(joinPath(srcBase, 'pet.json'), joinPath(destDir, 'pet.json'))
+      await copyFile(spritePath, joinPath(destDir, spriteName))
       if (!(await pathExists(joinPath(destDir, 'pet.json')))) {
         return { ok: false, error: '复制后校验失败：缺少 pet.json' }
       }
